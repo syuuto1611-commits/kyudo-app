@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>弓道場予約</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; text-align: center; }
+    #status { font-weight: bold; margin: 20px 0; color: #007bff; }
+    .hidden { display: none; }
+    input, button { display: block; width: 100%; margin: 10px 0; padding: 10px; }
+    button { background: #28a745; color: white; border: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>弓道場予約 (GitHub版)</h2>
+  <div id="status">起動中...</div>
+
+  <div id="register-area" class="hidden">
+    <h3>初回登録</h3>
+    <input type="text" id="reg-name" placeholder="名前">
+    <input type="text" id="reg-sid" placeholder="学籍番号(下4桁)">
+    <button onclick="doRegister()">登録</button>
+  </div>
+
+  <div id="main-area" class="hidden">
+    <h3 id="welcome-msg"></h3>
+    <p>ログイン成功！<br>ここはGitHub Pagesです。</p>
+  </div>
+
+  <script>
+    // ▼▼▼ あなたのIDとURLに書き換えてください ▼▼▼
+    const LIFF_ID = '2008892711-dVDOw8oH'; 
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzkmoy7CDtPUzKkVqFiFkHt28Y8gWhZvHvn8Oddpy1tJIOzRWPw14KQDsNAXMqwfBCH/exec'; 
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+    let myUserId = "";
+
+    async function main() {
+      try {
+        document.getElementById('status').innerText = "LIFF初期化中...";
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        myUserId = profile.userId;
+        document.getElementById('status').innerText = "データ取得中...";
+
+        // GASにデータを問い合わせる（fetchを使う）
+        const res = await fetch(`${GAS_URL}?action=checkUser&userId=${myUserId}`);
+        const data = await res.json();
+
+        if (data.userData) {
+          showMain(data.userData);
+        } else {
+          document.getElementById('status').innerText = "未登録です。情報を入力してください。";
+          document.getElementById('register-area').classList.remove('hidden');
+        }
+
+      } catch (e) {
+        document.getElementById('status').innerText = "エラー: " + e.message;
+      }
+    }
+
+    async function doRegister() {
+      const name = document.getElementById('reg-name').value;
+      const sid = document.getElementById('reg-sid').value;
+      document.getElementById('status').innerText = "登録通信中...";
+      
+      const res = await fetch(`${GAS_URL}?action=register&userId=${myUserId}&name=${name}&sid=${sid}`);
+      const data = await res.json();
+      
+      if (data.userData) {
+        document.getElementById('register-area').classList.add('hidden');
+        showMain(data.userData);
+      }
+    }
+
+    function showMain(user) {
+      document.getElementById('status').innerText = "";
+      document.getElementById('main-area').classList.remove('hidden');
+      document.getElementById('welcome-msg').innerText = `ようこそ、${user.name}さん`;
+    }
+
+    main();
+  </script>
+</body>
+</html>
