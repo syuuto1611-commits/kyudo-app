@@ -6,141 +6,68 @@
   <title>弓道場予約</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    /* --- ベース設定 --- */
-    body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif; background: #f4f7f6; margin: 0; padding: 10px; -webkit-font-smoothing: antialiased; }
+    body { font-family: sans-serif; background: #f4f7f6; margin: 0; padding: 10px; }
+    .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; position: relative; }
     .hidden { display: none !important; }
-
-    /* --- カード --- */
-    .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-    
-    /* --- フォーム --- */
     input, select, button { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #333; box-sizing: border-box; font-size: 16px; border-radius: 4px; }
     input[readonly] { background: #EDF2F7; color: #2B6CB0; text-align: center; font-weight: bold; }
-    
-    /* --- ボタン --- */
-    button { background: #333; color: white; font-weight: bold; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-    button:active { opacity: 0.8; }
+    button { background: #333; color: white; font-weight: bold; cursor: pointer; }
     .btn-res { background: #28a745; border: none; }
-    .btn-update { background: #ffc107 !important; color: #000 !important; }
-    .info-btn { position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; background: #007bff; color: white; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; cursor: pointer; }
+    
+    .info-btn {
+      position: absolute; top: 10px; right: 10px; width: 24px; height: 24px;
+      background: #007bff; color: white; border-radius: 50%; text-align: center;
+      line-height: 24px; font-weight: bold; cursor: pointer; font-size: 16px;
+    }
 
-    /* --- モーダル (自作アラート・確認画面用) --- */
-    #modal-overlay, #edit-menu-overlay, #alert-overlay, #confirm-overlay {
+    #modal-overlay, #edit-menu-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.6); z-index: 10000; 
-      display: flex; justify-content: center; align-items: center;
-      backdrop-filter: blur(2px);
+      background: rgba(0,0,0,0.6); z-index: 10000; display: flex; justify-content: center; align-items: center;
     }
     .modal-content {
-      background: white; padding: 20px; border-radius: 12px; width: 85%; max-width: 350px;
-      text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      background: white; padding: 20px; border-radius: 10px; width: 85%; max-width: 400px;
+      line-height: 1.6; font-size: 14px;
     }
-    .modal-content h3 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
-    .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
-    .btn-row button { margin: 0; flex: 1; }
-
-    /* --- テーブル (ゆらゆら・線ズレ防止の完全版) --- */
-    .table-container { 
-      /* iPhone慣性スクロール有効化 */
-      overflow: auto; -webkit-overflow-scrolling: touch; 
-      background: white; 
-      max-height: 70vh; /* 長すぎる場合に備えて高さ制限 */
-      /* テーブルの外枠（上と左）を描画 */
-      border-top: 1px solid #000; border-left: 1px solid #000;
-      position: relative;
-    }
-    
-    table { 
-      width: 100%; 
-      border-collapse: separate; /* stickyのためにseparate必須 */
-      border-spacing: 0; /* セル間の隙間をなくす */
-      table-layout: fixed; 
-      min-width: 600px; 
-    }
-
-    th, td { 
-      height: 50px; padding: 0; margin: 0; box-sizing: border-box;
-      /* 各セルの「右」と「下」に線を引く */
-      border-right: 1px solid #000; border-bottom: 1px solid #000; 
-      background-clip: padding-box; /* 背景色が線を侵食するのを防ぐ */
-    }
-
-    /* --- ヘッダー固定設定 --- */
-    /* 日付行 (上に固定) */
-    th { 
-      background: #eee; font-size: 11px; height: 40px; text-align: center; 
-      position: sticky; top: 0; z-index: 50; /* これでスクロールしても日付が残ります */
-    }
-    
-    /* 時間列 (左に固定) */
-    .time-col { 
-      width: 50px; text-align: center; background: #eee !important; font-weight: bold; 
-      position: sticky; left: 0; z-index: 60; /* 日付よりさらに手前に */
-      border-right: 1px solid #000; /* 固定列の右線 */
-    }
-    
-    /* 左上角 (日付と時間の交差点) */
-    #th th:first-child { 
-      position: sticky; top: 0; left: 0; z-index: 70; /* 最前面 */
-      background: #eee; 
-    }
-    
-    /* --- 予約バー --- */
-    .unified-res-bar { 
-      position: absolute; left: 0; width: 100%; box-sizing: border-box; z-index: 20; 
-      /* バー自体に上下枠線をつける */
-      border-top: 1px solid #000; border-bottom: 1px solid #000; 
-      font-size: 10px; font-weight: bold; padding: 4px; pointer-events: none; overflow: hidden;
-    }
-    .request-style {
-      position: absolute; right: 0; width: 20%; box-sizing: border-box; z-index: 35; 
-      background: #ffb347; border: 1px solid #000; pointer-events: none;
-    }
-    .my-res-outline {
-      position: absolute; left: 0; width: 100%; box-sizing: border-box;
-      /* 黄色枠を太く */
-      border: 3px solid #FFD700 !important; 
-      z-index: 40; pointer-events: auto; cursor: pointer; 
-    }
-    .personal { background: #add8e6; } 
-    .closed { background: #999999 !important; color: white; }
+    .modal-content h3 { margin-top: 0; color: #333; border-bottom: 2px solid #eee; padding-bottom: 5px; }
     .color-box { display: inline-block; width: 12px; height: 12px; margin-right: 5px; border: 1px solid #000; }
-    .clickable { cursor: pointer; height: 100%; width: 100%; position: absolute; top: 0; left: 0; z-index: 5; }
 
-    /* --- ローディング --- */
+    /* ローディング画面（タップ操作をブロックしないように修正） */
     #loading {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(255,255,255,0.9); z-index: 9999;
+      background: rgba(255,255,255,0.85); z-index: 9999;
       display: flex; justify-content: center; align-items: center; flex-direction: column;
+      pointer-events: auto; /* 表示中は操作ブロック */
     }
-    .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
+    #loading.hidden {
+      display: none !important;
+      pointer-events: none;
+    }
+    
+    .spinner { width: 60px; height: 60px; border: 6px solid #f3f3f3; border-top: 6px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    .table-container { overflow-x: auto; background: white; border: 2px solid #000; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 600px; }
+    th, td { border: 1px solid #000; height: 50px; position: relative; padding: 0; }
+    th { background: #eee; font-size: 11px; height: 40px; text-align: center; }
+    
+    .time-col { width: 50px; text-align: center; background: #eee !important; font-weight: bold; position: sticky; left: 0; z-index: 50; border-right: 2px solid #000; }
+    #th th:first-child { position: sticky; left: 0; z-index: 60; background: #eee; }
+    
+    .unified-res-bar { position: absolute; left: 0; width: 100%; box-sizing: border-box; z-index: 20; border-top: 1px solid #000; border-bottom: 1px solid #000; font-size: 10px; font-weight: bold; padding: 4px; pointer-events: none; overflow: hidden; }
+    .request-style { position: absolute; right: 0; width: 20%; box-sizing: border-box; z-index: 35; background: #ffb347; border: 1px solid #000; pointer-events: none; }
+    .my-res-outline { position: absolute; left: 0; width: 100%; box-sizing: border-box; border: 4px solid #FFD700 !important; z-index: 40; pointer-events: auto; cursor: pointer; box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+    .personal { background: #add8e6; } 
+    .closed { background: #999999 !important; color: white; }
+    .btn-update { background: #ffc107 !important; color: #000 !important; }
+    .clickable { cursor: pointer; height: 100%; width: 100%; position: absolute; top: 0; left: 0; z-index: 5; }
   </style>
 </head>
 <body>
 
-  <div id="alert-overlay" class="hidden">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <h3 id="alert-title">お知らせ</h3>
-      <p id="alert-msg" style="white-space: pre-wrap; margin-bottom: 20px;"></p>
-      <button onclick="closeAlert()" style="background:#333;">閉じる</button>
-    </div>
-  </div>
-
-  <div id="confirm-overlay" class="hidden">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <h3>確認</h3>
-      <p id="confirm-msg" style="margin-bottom: 20px;">本当に実行しますか？</p>
-      <div class="btn-row">
-        <button id="confirm-yes" style="background:#dc3545;">はい</button>
-        <button onclick="closeConfirm()" style="background:#6c757d;">いいえ</button>
-      </div>
-    </div>
-  </div>
-
   <div id="edit-menu-overlay" class="hidden" onclick="closeEditMenu()">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <h3>予約の操作</h3>
+    <div class="modal-content" onclick="event.stopPropagation()" style="text-align:center;">
+      <h3 style="margin-bottom:20px;">予約の操作</h3>
       <button id="btn-edit-mode" style="background:#ffc107; color:black; margin-bottom:10px;">時間を変更する</button>
       <button id="btn-delete-mode" style="background:#dc3545; color:white; margin-bottom:10px;">この予約を削除する</button>
       <button onclick="closeEditMenu()" style="background:#6c757d; color:white;">閉じる</button>
@@ -148,14 +75,14 @@
   </div>
 
   <div id="modal-overlay" class="hidden" onclick="closeHelp()">
-    <div class="modal-content" onclick="event.stopPropagation()" style="text-align:left;">
-      <h3 style="text-align:center;">説明</h3>
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h3>説明</h3>
       <p><b>■ 予約</b><br>表をタップして時間を選び、確定してください。</p>
       <p><b>■ 色の意味</b><br>
       <span class="color-box personal"></span>青：予定（カギ権限）<br>
       <span class="color-box" style="background:#ffb347; width:10px; border:1px solid #000;"></span>橙：希望（一般）<br>
       <span class="color-box" style="background:#999999;"></span>灰：不可<br>
-      <span style="display:inline-block; width:12px; height:12px; border:3px solid #FFD700; margin-right:5px;"></span>黄枠：自分の予約</p>
+      <span style="display:inline-block; width:12px; height:12px; border:2px solid #FFD700; margin-right:5px;"></span>黄枠：自分の予約</p>
       <button onclick="closeHelp()" style="margin-top:10px; background:#007bff;">閉じる</button>
     </div>
   </div>
@@ -192,40 +119,15 @@
 
   let me = null, resList = [], myLineId = "";
   let editModeId = null, tempEditData = null;
-  let confirmCallback = null;
   const startH = 9, endH = 21, hPx = 51;
 
-  // --- 画面操作系 ---
   function toggleLoading(show) { 
-    document.getElementById('loading').className = show ? "" : "hidden";
-  }
-
-  // ★自作アラート（URL出さない用）
-  function showMsg(msg, title="お知らせ") {
-    document.getElementById('alert-title').innerText = title;
-    document.getElementById('alert-msg').innerText = msg;
-    document.getElementById('alert-overlay').classList.remove('hidden');
-  }
-  function closeAlert() {
-    document.getElementById('alert-overlay').classList.add('hidden');
-  }
-
-  // ★自作確認画面（はい/いいえ）
-  function showConfirm(msg, callback) {
-    document.getElementById('confirm-msg').innerText = msg;
-    confirmCallback = callback;
-    document.getElementById('confirm-overlay').classList.remove('hidden');
-  }
-  
-  // 「はい」が押されたら
-  document.getElementById('confirm-yes').onclick = function() {
-    document.getElementById('confirm-overlay').classList.add('hidden');
-    if (confirmCallback) confirmCallback();
-  };
-  
-  function closeConfirm() {
-    document.getElementById('confirm-overlay').classList.add('hidden');
-    confirmCallback = null;
+    const el = document.getElementById('loading');
+    if (show) {
+      el.classList.remove('hidden');
+    } else {
+      el.classList.add('hidden');
+    }
   }
 
   function openHelp() { document.getElementById('modal-overlay').classList.remove('hidden'); }
@@ -237,7 +139,6 @@
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
-  // --- 通信系 ---
   async function callGAS(params) {
     const query = new URLSearchParams(params).toString();
     const res = await fetch(`${GAS_URL}?${query}`);
@@ -246,7 +147,8 @@
 
   async function initLiff() {
     try {
-      setTimeout(() => toggleLoading(false), 8000); // 念のための強制解除
+      // 強制解除タイマー：何があっても5秒後にはぐるぐるを消す
+      setTimeout(() => toggleLoading(false), 5000);
 
       await liff.init({ liffId: LIFF_ID });
       if (!liff.isLoggedIn()) { liff.login(); return; }
@@ -266,15 +168,16 @@
         document.getElementById('reg-page').classList.remove('hidden');
       }
     } catch (e) {
+      // エラーが出てもぐるぐるは消す
       toggleLoading(false);
-      showMsg("エラー: " + e.message, "通信エラー");
+      alert("エラー: " + e.message);
     }
   }
 
   async function register() {
     const name = document.getElementById('new-name').value;
     const sid = document.getElementById('sid').value;
-    if(!name || !sid) return showMsg("名前と学籍番号を入力してください");
+    if(!name || !sid) return alert("入力してください");
     
     toggleLoading(true);
     const data = await callGAS({ action: 'register', userId: myLineId, name: name, sid: sid });
@@ -296,7 +199,9 @@
   }
 
   function showMain(isNewUser) {
+    // まず最初にぐるぐるを消す！
     toggleLoading(false);
+
     document.getElementById('reg-page').classList.add('hidden');
     document.getElementById('main-page').classList.remove('hidden');
     
@@ -304,12 +209,18 @@
     document.getElementById('u-name').innerHTML = me.name + " さん " + roleStatus;
     document.getElementById('res-date-display').value = getJstDate().replace(/-/g,'/');
     
-    try { render(); } catch(e) { console.error(e); }
+    // 描画処理でエラーが出ても止まらないようにtry-catch
+    try {
+      render();
+    } catch(e) {
+      console.error(e);
+      alert("描画エラー: " + e.message);
+    }
 
     if (isNewUser) openHelp();
   }
 
-  // --- 予約ロジック ---
+  // --- 以下ロジック ---
   function setTime(dStr, h, startT = null, endT = null, resId = null) {
     document.getElementById('res-date-display').value = dStr.replace(/-/g,'/');
     const btn = document.querySelector('.btn-res');
@@ -333,29 +244,23 @@
   function openEditMenu(date, startT, endT, resId) {
     tempEditData = { date, startT, endT, resId };
     document.getElementById('edit-menu-overlay').classList.remove('hidden');
-    
     document.getElementById('btn-edit-mode').onclick = () => {
       setTime(tempEditData.date, null, tempEditData.startT, tempEditData.endT, tempEditData.resId);
       closeEditMenu();
     };
-    
-    // 削除ボタン：自作のshowConfirmを呼び出し
-    document.getElementById('btn-delete-mode').onclick = () => {
-      closeEditMenu();
-      showConfirm("本当にこの予約を削除しますか？", () => {
-        toggleLoading(true);
-        callGAS({ action: 'deleteRes', id: tempEditData.resId }).then(() => {
-          reloadRes();
-        });
-      });
+    document.getElementById('btn-delete-mode').onclick = async () => {
+      if(confirm("本当に削除しますか？")) {
+        closeEditMenu(); toggleLoading(true);
+        await callGAS({ action: 'deleteRes', id: tempEditData.resId });
+        reloadRes();
+      }
     };
   }
 
   async function add() {
     const dStr = document.getElementById('res-date-display').value.replace(/\//g,'-'), 
           s = document.getElementById('start-t').value, e = document.getElementById('end-t').value;
-    
-    if(s >= e) return showMsg("終了時間は開始時間より後にしてください", "時間エラー");
+    if(s >= e) return alert("時間が不正です");
     
     const sV = s.split(':').map(Number).reduce((h, m) => h + m/60);
     const eV = e.split(':').map(Number).reduce((h, m) => h + m/60);
@@ -365,8 +270,7 @@
       const re = r[6].split(':').map(Number).reduce((h, m) => h + m/60);
       return (sV < re && eV > rs);
     });
-    
-    if (isClosed) return showMsg("道場使用不可の時間帯です", "予約不可");
+    if (isClosed) return alert("道場使用不可の時間帯です");
 
     toggleLoading(true);
     if (editModeId) {
