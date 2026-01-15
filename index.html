@@ -6,89 +6,83 @@
   <title>弓道場予約</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    /* --- ベース設定 --- */
-    body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif; background: #f4f7f6; margin: 0; padding: 10px; -webkit-font-smoothing: antialiased; }
+    /* ベース設定 */
+    body { font-family: sans-serif; background: #f4f7f6; margin: 0; padding: 10px; }
     .hidden { display: none !important; }
 
-    /* --- カード --- */
-    .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    /* カードデザイン */
+    .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; position: relative; }
     
-    /* --- フォーム --- */
+    /* 入力フォーム類 */
     input, select, button { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #333; box-sizing: border-box; font-size: 16px; border-radius: 4px; }
     input[readonly] { background: #EDF2F7; color: #2B6CB0; text-align: center; font-weight: bold; }
     
-    /* --- ボタン --- */
-    button { background: #333; color: white; font-weight: bold; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-    button:active { opacity: 0.8; }
+    /* ボタン色 */
+    button { background: #333; color: white; font-weight: bold; cursor: pointer; }
     .btn-res { background: #28a745; border: none; }
     .btn-update { background: #ffc107 !important; color: #000 !important; }
-    .info-btn { position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; background: #007bff; color: white; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; cursor: pointer; }
+    
+    /* インフォボタン */
+    .info-btn {
+      position: absolute; top: 10px; right: 10px; width: 24px; height: 24px;
+      background: #007bff; color: white; border-radius: 50%; text-align: center;
+      line-height: 24px; font-weight: bold; cursor: pointer; font-size: 16px;
+    }
 
-    /* --- モーダル (自作アラート・確認画面用) --- */
-    #modal-overlay, #edit-menu-overlay, #alert-overlay, #confirm-overlay {
+    /* モーダル共通設定 */
+    #modal-overlay, #edit-menu-overlay, #alert-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.6); z-index: 10000; 
-      display: flex; justify-content: center; align-items: center;
-      backdrop-filter: blur(2px);
+      background: rgba(0,0,0,0.6); z-index: 10000; display: flex; justify-content: center; align-items: center;
     }
     .modal-content {
-      background: white; padding: 20px; border-radius: 12px; width: 85%; max-width: 350px;
-      text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      background: white; padding: 20px; border-radius: 10px; width: 85%; max-width: 400px;
+      line-height: 1.6; font-size: 14px; text-align: center;
     }
-    .modal-content h3 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
-    .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
-    .btn-row button { margin: 0; flex: 1; }
+    .modal-content h3 { margin-top: 0; color: #333; border-bottom: 2px solid #eee; padding-bottom: 5px; }
 
-    /* --- テーブル (ゆらゆら・線ズレ防止の完全版) --- */
+    /* テーブル設定（枠線ズレ防止の決定版設定） */
     .table-container { 
-      /* iPhone慣性スクロール有効化 */
-      overflow: auto; -webkit-overflow-scrolling: touch; 
-      background: white; 
-      max-height: 70vh; /* 長すぎる場合に備えて高さ制限 */
-      /* テーブルの外枠（上と左）を描画 */
-      border-top: 1px solid #000; border-left: 1px solid #000;
+      overflow-x: auto; background: white; border: 1px solid #000; 
+      /* スクロール時の枠線残りを防ぐ */
       position: relative;
     }
-    
     table { 
       width: 100%; 
-      border-collapse: separate; /* stickyのためにseparate必須 */
-      border-spacing: 0; /* セル間の隙間をなくす */
+      /* collapseをやめてseparateにすることでstickyの枠線問題を解決 */
+      border-collapse: separate; 
+      border-spacing: 0; 
       table-layout: fixed; 
       min-width: 600px; 
     }
-
     th, td { 
-      height: 50px; padding: 0; margin: 0; box-sizing: border-box;
-      /* 各セルの「右」と「下」に線を引く */
-      border-right: 1px solid #000; border-bottom: 1px solid #000; 
-      background-clip: padding-box; /* 背景色が線を侵食するのを防ぐ */
+      height: 50px; padding: 0; margin: 0; position: relative; box-sizing: border-box;
+      /* 全セルに右と下の線をつける */
+      border-right: 1px solid #000; 
+      border-bottom: 1px solid #000; 
     }
-
-    /* --- ヘッダー固定設定 --- */
-    /* 日付行 (上に固定) */
-    th { 
-      background: #eee; font-size: 11px; height: 40px; text-align: center; 
-      position: sticky; top: 0; z-index: 50; /* これでスクロールしても日付が残ります */
-    }
+    th { background: #eee; font-size: 11px; height: 40px; text-align: center; border-top: 1px solid #000; }
     
-    /* 時間列 (左に固定) */
+    /* 左端（時間列）の固定設定 */
     .time-col { 
       width: 50px; text-align: center; background: #eee !important; font-weight: bold; 
-      position: sticky; left: 0; z-index: 60; /* 日付よりさらに手前に */
-      border-right: 1px solid #000; /* 固定列の右線 */
+      position: sticky; left: 0; z-index: 50; 
+      /* 固定列の左側にも線をつける */
+      border-left: 1px solid #000;
+      /* 枠線がスクロールに置いていかれないための微調整 */
+      box-shadow: 1px 0 0 #000; 
+      border-right: none; /* box-shadowで代用するため右線は消す */
     }
-    
-    /* 左上角 (日付と時間の交差点) */
+    /* ヘッダーの左上角 */
     #th th:first-child { 
-      position: sticky; top: 0; left: 0; z-index: 70; /* 最前面 */
-      background: #eee; 
+      position: sticky; left: 0; z-index: 60; background: #eee; 
+      border-left: 1px solid #000;
+      box-shadow: 1px 0 0 #000;
+      border-right: none;
     }
     
-    /* --- 予約バー --- */
+    /* 予約バー設定 */
     .unified-res-bar { 
       position: absolute; left: 0; width: 100%; box-sizing: border-box; z-index: 20; 
-      /* バー自体に上下枠線をつける */
       border-top: 1px solid #000; border-bottom: 1px solid #000; 
       font-size: 10px; font-weight: bold; padding: 4px; pointer-events: none; overflow: hidden;
     }
@@ -98,22 +92,21 @@
     }
     .my-res-outline {
       position: absolute; left: 0; width: 100%; box-sizing: border-box;
-      /* 黄色枠を太く */
-      border: 3px solid #FFD700 !important; 
-      z-index: 40; pointer-events: auto; cursor: pointer; 
+      border: 4px solid #FFD700 !important; z-index: 40;
+      pointer-events: auto; cursor: pointer; box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
     }
     .personal { background: #add8e6; } 
     .closed { background: #999999 !important; color: white; }
     .color-box { display: inline-block; width: 12px; height: 12px; margin-right: 5px; border: 1px solid #000; }
     .clickable { cursor: pointer; height: 100%; width: 100%; position: absolute; top: 0; left: 0; z-index: 5; }
 
-    /* --- ローディング --- */
+    /* ローディング */
     #loading {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(255,255,255,0.9); z-index: 9999;
+      background: rgba(255,255,255,0.85); z-index: 9999;
       display: flex; justify-content: center; align-items: center; flex-direction: column;
     }
-    .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
+    .spinner { width: 60px; height: 60px; border: 6px solid #f3f3f3; border-top: 6px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
@@ -122,25 +115,14 @@
   <div id="alert-overlay" class="hidden">
     <div class="modal-content" onclick="event.stopPropagation()">
       <h3 id="alert-title">お知らせ</h3>
-      <p id="alert-msg" style="white-space: pre-wrap; margin-bottom: 20px;"></p>
-      <button onclick="closeAlert()" style="background:#333;">閉じる</button>
-    </div>
-  </div>
-
-  <div id="confirm-overlay" class="hidden">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <h3>確認</h3>
-      <p id="confirm-msg" style="margin-bottom: 20px;">本当に実行しますか？</p>
-      <div class="btn-row">
-        <button id="confirm-yes" style="background:#dc3545;">はい</button>
-        <button onclick="closeConfirm()" style="background:#6c757d;">いいえ</button>
-      </div>
+      <p id="alert-msg"></p>
+      <button onclick="closeAlert()" style="margin-top:10px; background:#333;">OK</button>
     </div>
   </div>
 
   <div id="edit-menu-overlay" class="hidden" onclick="closeEditMenu()">
     <div class="modal-content" onclick="event.stopPropagation()">
-      <h3>予約の操作</h3>
+      <h3 style="margin-bottom:20px;">予約の操作</h3>
       <button id="btn-edit-mode" style="background:#ffc107; color:black; margin-bottom:10px;">時間を変更する</button>
       <button id="btn-delete-mode" style="background:#dc3545; color:white; margin-bottom:10px;">この予約を削除する</button>
       <button onclick="closeEditMenu()" style="background:#6c757d; color:white;">閉じる</button>
@@ -155,7 +137,7 @@
       <span class="color-box personal"></span>青：予定（カギ権限）<br>
       <span class="color-box" style="background:#ffb347; width:10px; border:1px solid #000;"></span>橙：希望（一般）<br>
       <span class="color-box" style="background:#999999;"></span>灰：不可<br>
-      <span style="display:inline-block; width:12px; height:12px; border:3px solid #FFD700; margin-right:5px;"></span>黄枠：自分の予約</p>
+      <span style="display:inline-block; width:12px; height:12px; border:2px solid #FFD700; margin-right:5px;"></span>黄枠：自分の予約</p>
       <button onclick="closeHelp()" style="margin-top:10px; background:#007bff;">閉じる</button>
     </div>
   </div>
@@ -192,15 +174,14 @@
 
   let me = null, resList = [], myLineId = "";
   let editModeId = null, tempEditData = null;
-  let confirmCallback = null;
   const startH = 9, endH = 21, hPx = 51;
 
   // --- 画面操作系 ---
   function toggleLoading(show) { 
-    document.getElementById('loading').className = show ? "" : "hidden";
+    document.getElementById('loading').className = show ? "" : "hidden"; // hiddenクラスの付け外しのみ
   }
 
-  // ★自作アラート（URL出さない用）
+  // ★新しいメッセージ表示関数（alertの代わり）
   function showMsg(msg, title="お知らせ") {
     document.getElementById('alert-title').innerText = title;
     document.getElementById('alert-msg').innerText = msg;
@@ -208,24 +189,6 @@
   }
   function closeAlert() {
     document.getElementById('alert-overlay').classList.add('hidden');
-  }
-
-  // ★自作確認画面（はい/いいえ）
-  function showConfirm(msg, callback) {
-    document.getElementById('confirm-msg').innerText = msg;
-    confirmCallback = callback;
-    document.getElementById('confirm-overlay').classList.remove('hidden');
-  }
-  
-  // 「はい」が押されたら
-  document.getElementById('confirm-yes').onclick = function() {
-    document.getElementById('confirm-overlay').classList.add('hidden');
-    if (confirmCallback) confirmCallback();
-  };
-  
-  function closeConfirm() {
-    document.getElementById('confirm-overlay').classList.add('hidden');
-    confirmCallback = null;
   }
 
   function openHelp() { document.getElementById('modal-overlay').classList.remove('hidden'); }
@@ -246,7 +209,7 @@
 
   async function initLiff() {
     try {
-      setTimeout(() => toggleLoading(false), 8000); // 念のための強制解除
+      setTimeout(() => toggleLoading(false), 8000); // 念のための強制解除(8秒)
 
       await liff.init({ liffId: LIFF_ID });
       if (!liff.isLoggedIn()) { liff.login(); return; }
@@ -339,15 +302,17 @@
       closeEditMenu();
     };
     
-    // 削除ボタン：自作のshowConfirmを呼び出し
+    // 削除確認のアラートも独自モーダルに変更
     document.getElementById('btn-delete-mode').onclick = () => {
-      closeEditMenu();
-      showConfirm("本当にこの予約を削除しますか？", () => {
+      // 確認ダイアログは標準のconfirmを使いますが、完了メッセージはshowMsgを使います
+      if(confirm("本当に削除しますか？")) {
+        closeEditMenu(); 
         toggleLoading(true);
         callGAS({ action: 'deleteRes', id: tempEditData.resId }).then(() => {
           reloadRes();
+          // showMsg("削除しました"); // 必要であればコメントアウトを外す
         });
-      });
+      }
     };
   }
 
@@ -357,6 +322,7 @@
     
     if(s >= e) return showMsg("終了時間は開始時間より後にしてください", "時間エラー");
     
+    // 重複チェック
     const sV = s.split(':').map(Number).reduce((h, m) => h + m/60);
     const eV = e.split(':').map(Number).reduce((h, m) => h + m/60);
     const isClosed = resList.some(r => {
