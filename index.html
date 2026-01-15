@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>弓道場予約</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     body { font-family: sans-serif; background: #f4f7f6; margin: 0; padding: 10px; }
     .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; position: relative; }
@@ -78,12 +79,6 @@
 </head>
 <body>
 
-  <script>
-    // ▼▼▼ ここにGASのURLを貼ってください ▼▼▼
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzkmoy7CDtPUzKkVqFiFkHt28Y8gWhZvHvn8Oddpy1tJIOzRWPw14KQDsNAXMqwfBCH/exec';
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-  </script>
-
   <div id="edit-menu-overlay" class="hidden" onclick="closeEditMenu()">
     <div class="modal-content" onclick="event.stopPropagation()" style="text-align:center;">
       <h3 style="margin-bottom:20px;">予約の操作</h3>
@@ -110,17 +105,13 @@
     </div>
   </div>
 
-  <div id="loading" class="hidden"><div class="spinner"></div></div>
+  <div id="loading"><div class="spinner"></div></div>
 
-  <div id="auth-page" class="card">
-    <h3 style="text-align:center;">ログイン</h3>
-    <input type="text" id="sid" placeholder="Toyoメアド＠の直前4ケタ" inputmode="numeric">
-    <button onclick="auth()">ログイン</button>
-  </div>
-
-  <div id="reg-page" class="card hidden">
-    <h3>新規登録</h3>
+  <div id="auth-page" class="card hidden">
+    <h3 style="text-align:center;">初期設定</h3>
+    <p style="font-size:12px; color:gray;">初回のみ登録が必要です。LINEアカウントと紐付けます。</p>
     <input type="text" id="new-name" placeholder="お名前">
+    <input type="text" id="sid" placeholder="学籍番号（下4桁）" inputmode="numeric">
     <button onclick="register()">登録して進む</button>
   </div>
 
@@ -139,120 +130,99 @@
   </div>
 
 <script>
-  let me = null, resList = [];
+  // ▼▼▼ ここを書き換える ▼▼▼
+  const LIFF_ID = '2008892711-dVDOw8oH'; 
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzkmoy7CDtPUzKkVqFiFkHt28Y8gWhZvHvn8Oddpy1tJIOzRWPw14KQDsNAXMqwfBCH/exec'; 
+  // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+  let me = null, resList = [], myLineId = "";
   let editModeId = null;
   let tempEditData = null;
   const startH = 9, endH = 21, hPx = 51;
 
-  // GitHub用通信関数
-  async function callGAS(params) {
-    const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${GAS_URL}?${query}`);
-    const data = await res.json();
-    if(data.error) throw new Error(data.error);
-    return data;
-  }
+  function toggleLoading(show) { document.getElementById('loading').className = show ? "" : "hidden"; }
+  function openHelp() { document.getElementById('modal-overlay').classList.remove('hidden'); }
+  function closeHelp() { document.getElementById('modal-overlay').classList.add('hidden'); }
+  function closeEditMenu() { document.getElementById('edit-menu-overlay').classList.add('hidden'); }
 
   function getJstDate(offset = 0) {
     const d = new Date(); d.setDate(d.getDate() + offset);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
-  function openHelp() { document.getElementById('modal-overlay').classList.remove('hidden'); }
-  function closeHelp() { document.getElementById('modal-overlay').classList.add('hidden'); }
-  function toggleLoading(show) { document.getElementById('loading').className = show ? "" : "hidden"; }
-  function closeEditMenu() { document.getElementById('edit-menu-overlay').classList.add('hidden'); }
-
-  function openEditMenu(date, startT, endT, resId) {
-    tempEditData = { date, startT, endT, resId };
-    document.getElementById('edit-menu-overlay').classList.remove('hidden');
-    document.getElementById('btn-edit-mode').onclick = () => {
-      setTime(tempEditData.date, null, tempEditData.startT, tempEditData.endT, tempEditData.resId);
-      closeEditMenu();
-    };
-    document.getElementById('btn-delete-mode').onclick = async () => {
-      if(confirm("本当にこの予約を削除しますか？")) {
-        closeEditMenu(); toggleLoading(true);
-        try {
-          await callGAS({ action: 'deleteRes', id: tempEditData.resId });
-          reloadRes();
-        } catch(e) { alert("削除失敗: " + e.message); toggleLoading(false); }
-      }
-    };
+  // 通信関数 (API化)
+  async function callGAS(params) {
+    const query = new URLSearchParams(params).toString();
+    const res = await fetch(`${GAS_URL}?${query}`);
+    return await res.json();
   }
 
-  (function init(){
-    const s = document.getElementById('start-t'), e = document.getElementById('end-t');
-    for (let h = startH; h <= endH; h++) {
-      ['00', '30'].forEach(m => {
-        const t = `${h.toString().padStart(2,'0')}:${m}`;
-        s.add(new Option(t, t)); e.add(new Option(t, t));
-      });
-    }
-  })();
-
-  async function auth() {
-    const sid = document.getElementById('sid').value;
-    if(!sid) return;
-    toggleLoading(true);
+  // 初期化 (LINEログイン処理)
+  async function initLiff() {
     try {
-      const data = await callGAS({ action: 'checkUser', sid: sid });
-      if (data.userData) { 
-        me = data.userData; 
-        resList = data.reservations; 
-        showMain(data.isNewUser); 
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) { liff.login(); return; }
+      
+      const profile = await liff.getProfile();
+      myLineId = profile.userId;
+
+      toggleLoading(true);
+      const data = await callGAS({ action: 'checkUser', userId: myLineId });
+      
+      if (data.userData) {
+        me = data.userData;
+        resList = data.reservations || [];
+        showMain(false);
+      } else {
+        toggleLoading(false);
+        document.getElementById('auth-page').classList.remove('hidden');
       }
-      else { 
-        document.getElementById('auth-page').classList.add('hidden'); 
-        document.getElementById('reg-page').classList.remove('hidden'); 
-      }
-    } catch(e) { alert("エラー: " + e.message); }
-    toggleLoading(false);
+    } catch (e) {
+      alert("エラー: " + e.message);
+      toggleLoading(false);
+    }
   }
 
   async function register() {
-    const name = document.getElementById('new-name').value, sid = document.getElementById('sid').value;
-    if(!name) return;
+    const name = document.getElementById('new-name').value;
+    const sid = document.getElementById('sid').value;
+    if(!name || !sid) return alert("入力してください");
+    
     toggleLoading(true);
-    try {
-      const data = await callGAS({ action: 'register', name: name, sid: sid });
-      me = data.userData; 
-      resList = data.reservations; 
-      showMain(data.isNewUser); 
-    } catch(e) { alert("エラー: " + e.message); }
-    toggleLoading(false); 
+    const data = await callGAS({ action: 'register', userId: myLineId, name: name, sid: sid });
+    
+    if (data.userData) {
+      me = data.userData;
+      resList = data.reservations || [];
+      showMain(true);
+    }
+    toggleLoading(false);
+  }
+
+  async function reloadRes() {
+    toggleLoading(true);
+    const data = await callGAS({ action: 'reload', userId: myLineId });
+    resList = data.reservations || [];
+    render();
+    toggleLoading(false);
   }
 
   function showMain(isNewUser) {
     document.getElementById('auth-page').classList.add('hidden');
-    document.getElementById('reg-page').classList.add('hidden');
     document.getElementById('main-page').classList.remove('hidden');
+    
     const roleStatus = (me.role === 'カギ') ? '<span style="color:green; font-size:12px;">[権限あり]</span>' : '<span style="color:red; font-size:12px;">[権限なし]</span>';
     document.getElementById('u-name').innerHTML = me.name + " さん " + roleStatus;
     document.getElementById('res-date-display').value = getJstDate().replace(/-/g,'/');
     render();
     
-    if (isNewUser) {
-      openHelp();
-    }
-  }
-
-  async function reloadRes() {
-    toggleLoading(true);
-    try {
-      const data = await callGAS({ action: 'checkUser', sid: me.sid });
-      resList = data.reservations; 
-      render();
-    } catch(e) { alert("更新失敗: " + e.message); }
-    toggleLoading(false);
+    if (isNewUser) openHelp();
   }
 
   function setTime(dStr, h, startT = null, endT = null, resId = null) {
     document.getElementById('res-date-display').value = dStr.replace(/-/g,'/');
     const btn = document.querySelector('.btn-res');
+    
     if (resId) {
       editModeId = resId;
       document.getElementById('start-t').value = startT;
@@ -270,15 +240,67 @@
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
 
+  function openEditMenu(date, startT, endT, resId) {
+    tempEditData = { date, startT, endT, resId };
+    document.getElementById('edit-menu-overlay').classList.remove('hidden');
+    
+    document.getElementById('btn-edit-mode').onclick = () => {
+      setTime(tempEditData.date, null, tempEditData.startT, tempEditData.endT, tempEditData.resId);
+      closeEditMenu();
+    };
+    
+    document.getElementById('btn-delete-mode').onclick = async () => {
+      if(confirm("本当にこの予約を削除しますか？")) {
+        closeEditMenu(); toggleLoading(true);
+        await callGAS({ action: 'deleteRes', id: tempEditData.resId });
+        reloadRes();
+      }
+    };
+  }
+
+  // 予約追加
+  async function add() {
+    const dStr = document.getElementById('res-date-display').value.replace(/\//g,'-'), 
+          s = document.getElementById('start-t').value, e = document.getElementById('end-t').value;
+    
+    if(s >= e) return alert("時間が不正です");
+
+    // 重複チェック（道場使用不可との被りを確認）
+    const sV = s.split(':').map(Number).reduce((h, m) => h + m/60);
+    const eV = e.split(':').map(Number).reduce((h, m) => h + m/60);
+    
+    const isClosedTime = resList.some(r => {
+      if (r[4] !== dStr || r[3] !== "道場使用不可") return false;
+      const rs = r[5].split(':').map(Number).reduce((h, m) => h + m/60);
+      const re = r[6].split(':').map(Number).reduce((h, m) => h + m/60);
+      return (sV < re && eV > rs); // 重複判定
+    });
+
+    if (isClosedTime) return alert("指定された時間は道場が使用不可のため予約できません。");
+
+    toggleLoading(true);
+    
+    // 修正モードなら一旦削除してから追加
+    if (editModeId) {
+      await callGAS({ action: 'deleteRes', id: editModeId });
+      editModeId = null;
+    }
+    
+    await callGAS({ action: 'saveRes', name: me.name, role: me.role, date: dStr, start: s, end: e });
+    reloadRes();
+  }
+
   function render() {
     const th = document.getElementById('th'), tb = document.getElementById('tb');
     th.innerHTML = '<th class="time-col"></th>'; tb.innerHTML = '';
     const days = [], labels = ["日","月","火","水","木","金","土"];
+    
     for(let i=0; i<=7; i++){
       let d = new Date(); d.setDate(d.getDate() + i);
       const s = getJstDate(i); days.push(s);
       th.insertAdjacentHTML('beforeend', `<th>${d.getMonth()+1}/${d.getDate()}(${labels[d.getDay()]})</th>`);
     }
+
     for (let h = startH; h < endH; h++) {
       let r = `<tr><td class="time-col">${h}:00</td>`;
       days.forEach(d => { r += `<td id="c-${d}-${h}"><div class="clickable" onclick="setTime('${d}',${h})"></div></td>`; });
@@ -286,16 +308,19 @@
     }
 
     days.forEach(date => {
+      // その日の予約をフィルタリング
       const dayRes = resList.filter(r => r[4] === date).map(r => {
         const s = r[5].split(':').map(Number), e = r[6].split(':').map(Number);
         return { ...r, sVal: s[0] + s[1]/60, eVal: e[0] + e[1]/60 };
       });
 
-      baseRes = dayRes.filter(r => r[1] === '予定' || r[3] === '道場使用不可');
+      // 1. カギ権限(予定)と道場不可を描画（左側・全幅）
+      const baseRes = dayRes.filter(r => r[1] === '予定' || r[3] === '道場使用不可');
       baseRes.forEach(res => {
         const isClosed = res[3] === "道場使用不可";
         const cell = document.getElementById(`c-${date}-${Math.floor(res.sVal)}`);
         if (!cell) return;
+        
         const bar = document.createElement('div');
         bar.className = `unified-res-bar ${isClosed ? 'closed' : 'personal'}`;
         bar.style.height = ((res.eVal - res.sVal) * hPx) + "px";
@@ -305,10 +330,12 @@
         cell.appendChild(bar);
       });
 
+      // 2. 一般希望を描画（右端）
       const requests = dayRes.filter(r => r[1] === '希望');
       requests.forEach(req => {
         const cell = document.getElementById(`c-${date}-${Math.floor(req.sVal)}`);
         if (!cell) return;
+        
         const el = document.createElement('div');
         el.className = 'request-style';
         el.style.height = ((req.eVal - req.sVal) * hPx) + "px";
@@ -316,9 +343,11 @@
         cell.appendChild(el);
       });
 
+      // 3. 自分の予約に黄色い枠をつける
       dayRes.filter(r => r[3] === me.name).forEach(myR => {
         const cell = document.getElementById(`c-${date}-${Math.floor(myR.sVal)}`);
         if (!cell) return;
+        
         const outline = document.createElement('div');
         outline.className = 'my-res-outline';
         outline.style.height = ((myR.eVal - myR.sVal) * hPx) + "px";
@@ -329,36 +358,18 @@
     });
   }
 
-  async function add() {
-    const dStr = document.getElementById('res-date-display').value.replace(/\//g,'-'), 
-          s = document.getElementById('start-t').value, e = document.getElementById('end-t').value;
-    if(s >= e) return alert("時間が不正です");
-    
-    // 時間重複チェック（道場不可のみ）
-    const sV = s.split(':').map(Number).reduce((h, m) => h + m/60);
-    const eV = e.split(':').map(Number).reduce((h, m) => h + m/60);
-    const isClosedTime = resList.some(r => {
-      if (r[4] !== dStr || r[3] !== "道場使用不可") return false;
-      const rs = r[5].split(':').map(Number).reduce((h, m) => h + m/60);
-      const re = r[6].split(':').map(Number).reduce((h, m) => h + m/60);
-      return (sV < re && eV > rs);
-    });
-    if (isClosedTime) return alert("指定された時間は道場が使用不可のため予約できません。");
-
-    toggleLoading(true);
-    try {
-      if (editModeId) {
-        // 編集モード：削除してから追加
-        await callGAS({ action: 'deleteRes', id: editModeId });
-        await callGAS({ action: 'saveRes', name: me.name, role: me.role, date: dStr, start: s, end: e });
-        editModeId = null;
-      } else {
-        // 新規追加
-        await callGAS({ action: 'saveRes', name: me.name, role: me.role, date: dStr, start: s, end: e });
-      }
-      reloadRes();
-    } catch(e) { alert("処理失敗: " + e.message); toggleLoading(false); }
-  }
+  // 時間プルダウン生成
+  (function init(){
+    const s = document.getElementById('start-t'), e = document.getElementById('end-t');
+    for (let h = startH; h <= endH; h++) {
+      ['00', '30'].forEach(m => {
+        const t = `${h.toString().padStart(2,'0')}:${m}`;
+        s.add(new Option(t, t)); e.add(new Option(t, t));
+      });
+    }
+    // 起動
+    setTimeout(initLiff, 500);
+  })();
 </script>
 </body>
 </html>
