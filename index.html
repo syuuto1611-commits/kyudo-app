@@ -7,13 +7,13 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     /* --- ベース設定 --- */
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f7f6; margin: 0; padding: 10px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif; background: #f4f7f6; margin: 0; padding: 10px; -webkit-font-smoothing: antialiased; }
     .hidden { display: none !important; }
 
     /* --- カード --- */
-    .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; position: relative; }
+    .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     
-    /* --- フォーム要素 --- */
+    /* --- フォーム --- */
     input, select, button { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #333; box-sizing: border-box; font-size: 16px; border-radius: 4px; }
     input[readonly] { background: #EDF2F7; color: #2B6CB0; text-align: center; font-weight: bold; }
     
@@ -24,97 +24,83 @@
     .btn-update { background: #ffc107 !important; color: #000 !important; }
     .info-btn { position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; background: #007bff; color: white; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; cursor: pointer; }
 
-    /* --- モーダル共通 --- */
+    /* --- モーダル (自作アラート・確認画面用) --- */
     #modal-overlay, #edit-menu-overlay, #alert-overlay, #confirm-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.6); z-index: 10000; 
       display: flex; justify-content: center; align-items: center;
-      backdrop-filter: blur(2px); /* 背景を少しぼかよす */
+      backdrop-filter: blur(2px);
     }
     .modal-content {
       background: white; padding: 20px; border-radius: 12px; width: 85%; max-width: 350px;
-      line-height: 1.6; font-size: 14px; text-align: center;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
     }
     .modal-content h3 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+    .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+    .btn-row button { margin: 0; flex: 1; }
 
-    /* --- テーブル設定（ゆらゆら防止・太さ統一版） --- */
+    /* --- テーブル (ゆらゆら・線ズレ防止の完全版) --- */
     .table-container { 
-      overflow: auto; 
+      /* iPhone慣性スクロール有効化 */
+      overflow: auto; -webkit-overflow-scrolling: touch; 
       background: white; 
-      /* 外枠：左と上だけ描画 */
-      border-top: 1px solid #000;
-      border-left: 1px solid #000;
-      -webkit-overflow-scrolling: touch; /* iPhoneでの慣性スクロール有効化 */
+      max-height: 70vh; /* 長すぎる場合に備えて高さ制限 */
+      /* テーブルの外枠（上と左）を描画 */
+      border-top: 1px solid #000; border-left: 1px solid #000;
       position: relative;
     }
     
     table { 
       width: 100%; 
-      border-collapse: separate; /* stickyにはこれが必要 */
-      border-spacing: 0; 
+      border-collapse: separate; /* stickyのためにseparate必須 */
+      border-spacing: 0; /* セル間の隙間をなくす */
       table-layout: fixed; 
       min-width: 600px; 
     }
 
     th, td { 
-      height: 50px; 
-      padding: 0; 
-      margin: 0; 
-      box-sizing: border-box;
-      /* 各セルの右と下だけに線を描く（これで重ならない） */
-      border-right: 1px solid #000; 
-      border-bottom: 1px solid #000; 
-      background-clip: padding-box; /* 線の描画バグ防止 */
+      height: 50px; padding: 0; margin: 0; box-sizing: border-box;
+      /* 各セルの「右」と「下」に線を引く */
+      border-right: 1px solid #000; border-bottom: 1px solid #000; 
+      background-clip: padding-box; /* 背景色が線を侵食するのを防ぐ */
     }
 
+    /* --- ヘッダー固定設定 --- */
+    /* 日付行 (上に固定) */
     th { 
-      background: #eee; 
-      font-size: 11px; 
-      height: 40px; 
-      text-align: center; 
+      background: #eee; font-size: 11px; height: 40px; text-align: center; 
+      position: sticky; top: 0; z-index: 50; /* これでスクロールしても日付が残ります */
     }
     
-    /* 左端（時間列）の固定 */
+    /* 時間列 (左に固定) */
     .time-col { 
-      width: 50px; 
-      text-align: center; 
-      background: #eee !important; 
-      font-weight: bold; 
-      position: sticky; 
-      left: 0; 
-      z-index: 20; /* 予約バーより上に */
-      /* iPhoneでのちらつき防止用ハック */
-      transform: translateZ(0);
-      -webkit-transform: translateZ(0);
+      width: 50px; text-align: center; background: #eee !important; font-weight: bold; 
+      position: sticky; left: 0; z-index: 60; /* 日付よりさらに手前に */
+      border-right: 1px solid #000; /* 固定列の右線 */
     }
     
-    /* ヘッダーの左上角（一番手前に表示） */
+    /* 左上角 (日付と時間の交差点) */
     #th th:first-child { 
-      position: sticky; 
-      left: 0; 
-      z-index: 30; 
+      position: sticky; top: 0; left: 0; z-index: 70; /* 最前面 */
       background: #eee; 
     }
     
     /* --- 予約バー --- */
     .unified-res-bar { 
-      position: absolute; left: 0; width: 100%; box-sizing: border-box; z-index: 10; 
-      /* バー自体に上下線をつける */
-      border-top: 1px solid #000; 
-      border-bottom: 1px solid #000; 
+      position: absolute; left: 0; width: 100%; box-sizing: border-box; z-index: 20; 
+      /* バー自体に上下枠線をつける */
+      border-top: 1px solid #000; border-bottom: 1px solid #000; 
       font-size: 10px; font-weight: bold; padding: 4px; pointer-events: none; overflow: hidden;
     }
     .request-style {
-      position: absolute; right: 0; width: 20%; box-sizing: border-box; z-index: 15; 
+      position: absolute; right: 0; width: 20%; box-sizing: border-box; z-index: 35; 
       background: #ffb347; border: 1px solid #000; pointer-events: none;
     }
     .my-res-outline {
       position: absolute; left: 0; width: 100%; box-sizing: border-box;
-      /* 黄色枠を太くハッキリと */
+      /* 黄色枠を太く */
       border: 3px solid #FFD700 !important; 
-      z-index: 25; /* 時間列よりさらに上に */
-      pointer-events: auto; cursor: pointer; 
+      z-index: 40; pointer-events: auto; cursor: pointer; 
     }
     .personal { background: #add8e6; } 
     .closed { background: #999999 !important; color: white; }
@@ -129,10 +115,6 @@
     }
     .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    
-    /* ボタン横並び用 */
-    .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
-    .btn-row button { margin: 0; }
   </style>
 </head>
 <body>
@@ -140,15 +122,15 @@
   <div id="alert-overlay" class="hidden">
     <div class="modal-content" onclick="event.stopPropagation()">
       <h3 id="alert-title">お知らせ</h3>
-      <p id="alert-msg" style="white-space: pre-wrap;"></p>
-      <button onclick="closeAlert()" style="margin-top:15px; background:#333;">閉じる</button>
+      <p id="alert-msg" style="white-space: pre-wrap; margin-bottom: 20px;"></p>
+      <button onclick="closeAlert()" style="background:#333;">閉じる</button>
     </div>
   </div>
 
   <div id="confirm-overlay" class="hidden">
     <div class="modal-content" onclick="event.stopPropagation()">
       <h3>確認</h3>
-      <p id="confirm-msg">本当に実行しますか？</p>
+      <p id="confirm-msg" style="margin-bottom: 20px;">本当に実行しますか？</p>
       <div class="btn-row">
         <button id="confirm-yes" style="background:#dc3545;">はい</button>
         <button onclick="closeConfirm()" style="background:#6c757d;">いいえ</button>
@@ -205,12 +187,12 @@
 <script>
   // ▼▼▼ あなたのGASのURLに書き換えてください ▼▼▼
   const LIFF_ID = '2008892711-dVDOw8oH'; 
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzkmoy7CDtPUzKkVqFiFkHt28Y8gWhZvHvn8Oddpy1tJIOzRWPw14KQDsNAXMqwfBCH/exec'; 
+  const GAS_URL = 'https://script.google.com/macros/s/xxxxxxxxxxxxxxxxx/exec'; 
   // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
   let me = null, resList = [], myLineId = "";
   let editModeId = null, tempEditData = null;
-  let confirmCallback = null; // 確認画面のコールバック用
+  let confirmCallback = null;
   const startH = 9, endH = 21, hPx = 51;
 
   // --- 画面操作系 ---
@@ -218,7 +200,7 @@
     document.getElementById('loading').className = show ? "" : "hidden";
   }
 
-  // ★自作アラート（OKボタンのみ）
+  // ★自作アラート（URL出さない用）
   function showMsg(msg, title="お知らせ") {
     document.getElementById('alert-title').innerText = title;
     document.getElementById('alert-msg').innerText = msg;
@@ -228,14 +210,14 @@
     document.getElementById('alert-overlay').classList.add('hidden');
   }
 
-  // ★自作確認ダイアログ（はい/いいえ）
+  // ★自作確認画面（はい/いいえ）
   function showConfirm(msg, callback) {
     document.getElementById('confirm-msg').innerText = msg;
     confirmCallback = callback;
     document.getElementById('confirm-overlay').classList.remove('hidden');
   }
   
-  // 「はい」ボタンが押されたとき
+  // 「はい」が押されたら
   document.getElementById('confirm-yes').onclick = function() {
     document.getElementById('confirm-overlay').classList.add('hidden');
     if (confirmCallback) confirmCallback();
@@ -264,7 +246,7 @@
 
   async function initLiff() {
     try {
-      setTimeout(() => toggleLoading(false), 8000);
+      setTimeout(() => toggleLoading(false), 8000); // 念のための強制解除
 
       await liff.init({ liffId: LIFF_ID });
       if (!liff.isLoggedIn()) { liff.login(); return; }
@@ -357,7 +339,7 @@
       closeEditMenu();
     };
     
-    // ★ここを変更：標準confirmをやめて自作showConfirmを使用
+    // 削除ボタン：自作のshowConfirmを呼び出し
     document.getElementById('btn-delete-mode').onclick = () => {
       closeEditMenu();
       showConfirm("本当にこの予約を削除しますか？", () => {
@@ -384,7 +366,6 @@
       return (sV < re && eV > rs);
     });
     
-    // ★ここも自作アラートに変更
     if (isClosed) return showMsg("道場使用不可の時間帯です", "予約不可");
 
     toggleLoading(true);
