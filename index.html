@@ -53,7 +53,7 @@
     .time-col { width: 50px; text-align: center; background: #eee !important; font-weight: bold; position: sticky; left: 0; z-index: 50; border-right: 2px solid #000; }
     #th th:first-child { position: sticky; left: 0; z-index: 60; background: #eee; }
     
-    /* 修正ポイント：text-align: left に変更し名前を左上に */
+    /* 名前を左上に表示 */
     .unified-res-bar { 
       position: absolute; 
       left: 0; 
@@ -262,7 +262,7 @@
           s = document.getElementById('start-t').value, e = document.getElementById('end-t').value;
     if(s >= e) return alert("時間が不正です");
 
-    // 修正ポイント：21:00以降の予約を制限
+    // バリデーション：21:00以降の予約を制限
     const endParts = e.split(':').map(Number);
     if (endParts[0] > 21 || (endParts[0] === 21 && endParts[1] > 0)) {
       return alert("予約は21:00までしかできません");
@@ -296,46 +296,51 @@
       const s = getJstDate(i); days.push(s);
       th.insertAdjacentHTML('beforeend', `<th>${d.getMonth()+1}/${d.getDate()}(${labels[d.getDay()]})</th>`);
     }
-    // h < endH (21) により、21:00以降の行は作られません
+    
     for (let h = startH; h < endH; h++) {
       let r = `<tr><td class="time-col">${h}:00</td>`;
       days.forEach(d => { r += `<td id="c-${d}-${h}"><div class="clickable" onclick="setTime('${d}',${h})"></div></td>`; });
       tb.insertAdjacentHTML('beforeend', r + '</tr>');
     }
+
     days.forEach(date => {
       const dayRes = resList.filter(r => r[4] === date).map(r => {
         const s = r[5].split(':').map(Number), e = r[6].split(':').map(Number);
         return { ...r, sVal: s[0] + s[1]/60, eVal: e[0] + e[1]/60 };
       });
-      dayRes.filter(r => r[1] === '予定' || r[3] === '道場使用不可').forEach(res => {
+
+      // 共通の描画処理関数（ここを修正：21時で強制カット）
+      const drawBar = (res, className, isMyRes) => {
         const cell = document.getElementById(`c-${date}-${Math.floor(res.sVal)}`);
         if (!cell) return;
-        const bar = document.createElement('div');
-        bar.className = `unified-res-bar ${res[3] === "道場使用不可" ? 'closed' : 'personal'}`;
-        bar.style.height = ((res.eVal - res.sVal) * hPx) + "px";
-        bar.style.top = ((res.sVal % 1) * hPx) + "px";
-        bar.innerText = res[3] === "道場使用不可" ? "使用不可" : res[3];
-        if (res[3] === "道場使用不可") bar.style.zIndex = "30";
-        cell.appendChild(bar);
+        
+        // ★修正点：終了時間が21:00 (endH) を超えていたら、強制的に21:00にする
+        const safeEndVal = Math.min(res.eVal, endH);
+        
+        const div = document.createElement('div');
+        div.className = className;
+        div.style.height = ((safeEndVal - res.sVal) * hPx) + "px";
+        div.style.top = ((res.sVal % 1) * hPx) + "px";
+        
+        if (className.includes('unified-res-bar')) {
+           div.innerText = res[3] === "道場使用不可" ? "使用不可" : res[3];
+           if (res[3] === "道場使用不可") div.style.zIndex = "30";
+        }
+        
+        if (isMyRes) {
+           div.onclick = (e) => { e.stopPropagation(); openEditMenu(date, res[5], res[6], res[0]); };
+        }
+        cell.appendChild(div);
+      };
+
+      dayRes.filter(r => r[1] === '予定' || r[3] === '道場使用不可').forEach(res => {
+        drawBar(res, `unified-res-bar ${res[3] === "道場使用不可" ? 'closed' : 'personal'}`, false);
       });
       dayRes.filter(r => r[1] === '希望').forEach(req => {
-        const cell = document.getElementById(`c-${date}-${Math.floor(req.sVal)}`);
-        if (!cell) return;
-        const el = document.createElement('div');
-        el.className = 'request-style';
-        el.style.height = ((req.eVal - req.sVal) * hPx) + "px";
-        el.style.top = ((req.sVal % 1) * hPx) + "px";
-        cell.appendChild(el);
+        drawBar(req, 'request-style', false);
       });
       dayRes.filter(r => r[3] === me.name).forEach(myR => {
-        const cell = document.getElementById(`c-${date}-${Math.floor(myR.sVal)}`);
-        if (!cell) return;
-        const outline = document.createElement('div');
-        outline.className = 'my-res-outline';
-        outline.style.height = ((myR.eVal - myR.sVal) * hPx) + "px";
-        outline.style.top = ((myR.sVal % 1) * hPx) + "px";
-        outline.onclick = (e) => { e.stopPropagation(); openEditMenu(date, myR[5], myR[6], myR[0]); };
-        cell.appendChild(outline);
+        drawBar(myR, 'my-res-outline', true);
       });
     });
   }
@@ -345,9 +350,17 @@
     for (let h = startH; h <= endH; h++) {
       ['00', '30'].forEach(m => {
         const t = `${h.toString().padStart(2,'0')}:${m}`;
-        // 修正ポイント：21:30をプルダウンから削除
-        if (h === 21 && m === '30') return;
-        s.add(new Option(t, t)); e.add(new Option(t, t));
+        
+        // ★修正点：厳密に選択肢を除外
+        // 開始時間：21:00と21:30を除外（20:30スタートが最後）
+        if (t !== "21:00" && t !== "21:30") {
+            s.add(new Option(t, t)); 
+        }
+
+        // 終了時間：21:30のみ除外（21:00終了はOK）
+        if (t !== "21:30") {
+            e.add(new Option(t, t));
+        }
       });
     }
     setTimeout(initLiff, 500);
