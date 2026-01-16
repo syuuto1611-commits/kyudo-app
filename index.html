@@ -19,10 +19,11 @@
       position: absolute; top: 10px; right: 10px; width: 24px; height: 24px;
       background: #007bff; color: white; border-radius: 50%; text-align: center;
       line-height: 24px; font-weight: bold; cursor: pointer; font-size: 16px;
-      user-select: none; /* 連打時の選択防止 */
+      user-select: none;
+      transition: background 0.3s;
     }
-    /* 管理者モード時のインフォボタン */
-    .info-btn.admin-active { background: #dc3545; border: 2px solid #000; }
+    /* 管理者モードON時のスタイル（少し濃い赤にするだけ） */
+    .info-btn.admin-active { background: #dc3545; }
 
     #modal-overlay, #edit-menu-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -70,7 +71,7 @@
     .btn-update { background: #ffc107 !important; color: #000 !important; }
     .clickable { cursor: pointer; height: 100%; width: 100%; position: absolute; top: 0; left: 0; z-index: 5; }
 
-    /* 管理者用：閉鎖チェックボックスのデザイン */
+    /* 管理者用パネル（通常は非表示） */
     #admin-controls {
       margin-top: 10px; padding: 10px; background: #ffebeb; border: 2px solid #dc3545; border-radius: 4px;
     }
@@ -91,7 +92,11 @@
     <div class="modal-content" onclick="event.stopPropagation()">
       <h3>説明</h3>
       <p><b>■ 予約</b><br>表をタップして時間を選び、確定してください。</p>
-      <p><b>■ 管理者モード</b><br>「i」ボタンを5回連打すると管理者モードになり、他人の予約削除や道場閉鎖の設定ができます。</p>
+      <p><b>■ 色の意味</b><br>
+      <span class="color-box personal"></span>青：予定（カギ権限）<br>
+      <span class="color-box" style="background:#ffb347; width:10px; border:1px solid #000;"></span>橙：希望（一般）<br>
+      <span class="color-box" style="background:#999999;"></span>灰：不可<br>
+      <span style="display:inline-block; width:12px; height:12px; border:2px solid #FFD700; margin-right:5px;"></span>黄枠：自分の予約</p>
       <button onclick="closeHelp()" style="margin-top:10px; background:#007bff;">閉じる</button>
     </div>
   </div>
@@ -139,7 +144,7 @@
   let editModeId = null, tempEditData = null;
   const startH = 9, endH = 21, hPx = 51;
 
-  // ★管理者モード用変数
+  // ★管理者モード用
   let isAdminMode = false;
   let tapCount = 0;
   let tapTimer = null;
@@ -149,11 +154,12 @@
     if (show) el.classList.remove('hidden'); else el.classList.add('hidden');
   }
 
+  // Helpは通常の内容のみ表示
   function openHelp() { document.getElementById('modal-overlay').classList.remove('hidden'); }
   function closeHelp() { document.getElementById('modal-overlay').classList.add('hidden'); }
   function closeEditMenu() { document.getElementById('edit-menu-overlay').classList.add('hidden'); }
 
-  // ★隠しコマンド処理
+  // ★隠しコマンド処理（iボタン5回タップ）
   function handleInfoTap() {
     tapCount++;
     if (tapTimer) clearTimeout(tapTimer);
@@ -166,7 +172,7 @@
       const adminDiv = document.getElementById('admin-controls');
       
       if (isAdminMode) {
-        alert("【管理者モードON】\n他人の予約編集・削除、道場閉鎖設定が可能です。");
+        alert("【管理者モードON】\n※一般には非公開機能です\n編集・削除・閉鎖が可能です");
         btn.classList.add('admin-active');
         adminDiv.classList.remove('hidden');
       } else {
@@ -175,9 +181,9 @@
         adminDiv.classList.add('hidden');
         document.getElementById('admin-close-check').checked = false;
       }
-      render(); // 再描画してクリック判定を更新
+      render(); // 再描画してタップ判定を更新
     } else if (tapCount === 1) {
-      // 1回タップなら通常のヘルプ（少し待って連打でなければ開く）
+      // 1回タップなら通常のヘルプを開く
       setTimeout(() => {
         if (tapCount < 2) openHelp();
       }, 300);
@@ -255,7 +261,6 @@
     document.getElementById('res-date-display').value = dStr.replace(/-/g,'/');
     const btn = document.querySelector('.btn-res');
     
-    // 編集モードの場合
     if (resId) {
       editModeId = resId;
       document.getElementById('start-t').value = startT;
@@ -280,10 +285,13 @@
       setTime(tempEditData.date, null, tempEditData.startT, tempEditData.endT, tempEditData.resId);
       closeEditMenu();
     };
+    
+    // ★削除処理の修正
     document.getElementById('btn-delete-mode').onclick = async () => {
       if(confirm("本当に削除しますか？")) {
         closeEditMenu(); toggleLoading(true);
-        await callGAS({ action: 'deleteRes', id: tempEditData.resId });
+        // userIdを追加して送信（これがないと他人の予約が消せない場合がある）
+        await callGAS({ action: 'deleteRes', id: tempEditData.resId, userId: myLineId });
         reloadRes();
       }
     };
@@ -293,7 +301,6 @@
     const dStr = document.getElementById('res-date-display').value.replace(/\//g,'-'), 
           s = document.getElementById('start-t').value, e = document.getElementById('end-t').value;
     
-    // ★管理者用：閉鎖チェック
     const isCloseMode = document.getElementById('admin-close-check').checked;
     
     if(s >= e) return alert("時間が不正です");
@@ -306,13 +313,9 @@
     const sV = s.split(':').map(Number).reduce((h, m) => h + m/60);
     const eV = e.split(':').map(Number).reduce((h, m) => h + m/60);
     
-    // 重複チェック（管理者モードで閉鎖設定する時も、既存予約とかぶらないか一応チェックするが、閉鎖で上書きしたい場合はここを緩めることも可能。今回は安全のためチェック維持）
     const isClosed = resList.some(r => {
-      // 自分自身の編集時は除外
       if (editModeId && r[0] == editModeId) return false;
-      
-      if (r[4] !== dStr) return false; // 日付違い
-      // 既存が「使用不可」なら、通常ユーザーは予約不可
+      if (r[4] !== dStr) return false;
       if (!isCloseMode && r[3] === "道場使用不可") {
          const rs = r[5].split(':').map(Number).reduce((h, m) => h + m/60);
          const re = r[6].split(':').map(Number).reduce((h, m) => h + m/60);
@@ -325,17 +328,17 @@
 
     toggleLoading(true);
     if (editModeId) {
-      await callGAS({ action: 'deleteRes', id: editModeId });
+      // 修正時もuserIdを送る
+      await callGAS({ action: 'deleteRes', id: editModeId, userId: myLineId });
       editModeId = null;
     }
     
-    // ★送信データ：閉鎖モードなら名前を「道場使用不可」にする
     const sendName = isCloseMode ? "道場使用不可" : me.name;
     const sendRole = isCloseMode ? "道場使用不可" : me.role;
 
-    await callGAS({ action: 'saveRes', name: sendName, role: sendRole, date: dStr, start: s, end: e });
+    // saveResにも一応userIdを送っておく（念のため）
+    await callGAS({ action: 'saveRes', userId: myLineId, name: sendName, role: sendRole, date: dStr, start: s, end: e });
     
-    // 完了したらチェックを外す
     document.getElementById('admin-close-check').checked = false;
     reloadRes();
   }
@@ -379,9 +382,8 @@
            if (res[3] === "道場使用不可") div.style.zIndex = "30";
         }
         
-        // ★修正：自分の予約 または 管理者モードならクリック可能にする
+        // 管理者モードなら他人の予約でもクリック可能にする
         if (isMyRes || isAdminMode) {
-           // 他人の予約をいじるときはpointer-eventsをautoにする必要がある（CSSでnoneになっている場合があるため）
            div.style.pointerEvents = "auto";
            div.style.cursor = "pointer";
            div.onclick = (e) => { e.stopPropagation(); openEditMenu(date, res[5], res[6], res[0]); };
