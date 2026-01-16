@@ -14,27 +14,15 @@
     button { background: #333; color: white; font-weight: bold; cursor: pointer; }
     .btn-res { background: #28a745; border: none; }
     
+    /* インフォボタン */
     .info-btn {
       position: absolute; top: 10px; right: 10px; width: 24px; height: 24px;
       background: #007bff; color: white; border-radius: 50%; text-align: center;
       line-height: 24px; font-weight: bold; cursor: pointer; font-size: 16px;
-      transition: background 0.3s;
-      user-select: none;
+      user-select: none; /* 連打時の選択防止 */
     }
-
-    /* 管理者用チェックボックスエリア */
-    #admin-controls {
-      margin: 10px 0;
-      padding: 10px;
-      background: #ffebee;
-      border: 1px solid #f44336;
-      border-radius: 4px;
-      color: #d32f2f;
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    /* 管理者モード時のインフォボタン */
+    .info-btn.admin-active { background: #dc3545; border: 2px solid #000; }
 
     #modal-overlay, #edit-menu-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -69,21 +57,11 @@
     .time-col { width: 50px; text-align: center; background: #eee !important; font-weight: bold; position: sticky; left: 0; z-index: 50; border-right: 2px solid #000; }
     #th th:first-child { position: sticky; left: 0; z-index: 60; background: #eee; }
     
-    /* 名前を左上に表示 */
     .unified-res-bar { 
-      position: absolute; 
-      left: 0; 
-      width: 100%; 
-      box-sizing: border-box; 
-      z-index: 20; 
-      border-top: 1px solid #000; 
-      border-bottom: 1px solid #000; 
-      font-size: 10px; 
-      font-weight: bold; 
-      padding: 2px 4px; 
-      pointer-events: none; 
-      overflow: hidden; 
-      text-align: left; 
+      position: absolute; left: 0; width: 100%; box-sizing: border-box; 
+      z-index: 20; border-top: 1px solid #000; border-bottom: 1px solid #000; 
+      font-size: 10px; font-weight: bold; padding: 2px 4px; 
+      pointer-events: none; overflow: hidden; text-align: left; 
     }
     .request-style { position: absolute; right: 0; width: 20%; box-sizing: border-box; z-index: 35; background: #ffb347; border: 1px solid #000; pointer-events: none; }
     .my-res-outline { position: absolute; left: 0; width: 100%; box-sizing: border-box; border: 4px solid #FFD700 !important; z-index: 40; pointer-events: auto; cursor: pointer; box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
@@ -91,9 +69,11 @@
     .closed { background: #999999 !important; color: white; }
     .btn-update { background: #ffc107 !important; color: #000 !important; }
     .clickable { cursor: pointer; height: 100%; width: 100%; position: absolute; top: 0; left: 0; z-index: 5; }
-    
-    /* 管理者モード用：クリック可能にするクラス */
-    .admin-clickable { pointer-events: auto !important; cursor: pointer !important; border: 2px dashed red !important; z-index: 45 !important; }
+
+    /* 管理者用：閉鎖チェックボックスのデザイン */
+    #admin-controls {
+      margin-top: 10px; padding: 10px; background: #ffebeb; border: 2px solid #dc3545; border-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -111,11 +91,7 @@
     <div class="modal-content" onclick="event.stopPropagation()">
       <h3>説明</h3>
       <p><b>■ 予約</b><br>表をタップして時間を選び、確定してください。</p>
-      <p><b>■ 色の意味</b><br>
-      <span class="color-box personal"></span>青：予定（カギ権限）<br>
-      <span class="color-box" style="background:#ffb347; width:10px; border:1px solid #000;"></span>橙：希望（一般）<br>
-      <span class="color-box" style="background:#999999;"></span>灰：不可<br>
-      <span style="display:inline-block; width:12px; height:12px; border:2px solid #FFD700; margin-right:5px;"></span>黄枠：自分の予約</p>
+      <p><b>■ 管理者モード</b><br>「i」ボタンを5回連打すると管理者モードになり、他人の予約削除や道場閉鎖の設定ができます。</p>
       <button onclick="closeHelp()" style="margin-top:10px; background:#007bff;">閉じる</button>
     </div>
   </div>
@@ -132,16 +108,20 @@
 
   <div id="main-page" class="hidden">
     <div class="card">
-      <div class="info-btn" onclick="handleInfoClick()">i</div>
+      <div id="info-btn" class="info-btn" onclick="handleInfoTap()">i</div>
+      
       <div id="u-name" style="font-weight:bold; margin-bottom:5px;"></div>
       <button onclick="reloadRes()" style="background:#6c757d; padding:8px; font-size:13px;">更新</button>
       <input type="text" id="res-date-display" readonly>
+      <div style="display:flex; gap:5px;"><select id="start-t"></select><select id="end-t"></select></div>
       
       <div id="admin-controls" class="hidden">
-         <label><input type="checkbox" id="close-mode-chk"> 道場を使用不可にする</label>
+        <label style="color:#dc3545; font-weight:bold; display:flex; align-items:center; cursor:pointer;">
+          <input type="checkbox" id="admin-close-check" style="width:20px; height:20px; margin-right:10px;">
+          道場を閉鎖する（使用不可）
+        </label>
       </div>
 
-      <div style="display:flex; gap:5px;"><select id="start-t"></select><select id="end-t"></select></div>
       <button class="btn-res" onclick="add()">予約を確定</button>
     </div>
     <div class="table-container">
@@ -159,60 +139,50 @@
   let editModeId = null, tempEditData = null;
   const startH = 9, endH = 21, hPx = 51;
 
-  // 管理者モード用変数
+  // ★管理者モード用変数
   let isAdminMode = false;
   let tapCount = 0;
   let tapTimer = null;
 
   function toggleLoading(show) { 
     const el = document.getElementById('loading');
-    if (show) {
-      el.classList.remove('hidden');
-    } else {
-      el.classList.add('hidden');
-    }
-  }
-
-  // 隠しコマンド処理
-  function handleInfoClick() {
-    tapCount++;
-    if (tapTimer) clearTimeout(tapTimer);
-    tapTimer = setTimeout(() => { tapCount = 0; }, 1000); // 1秒以内に連打
-
-    if (tapCount >= 5) {
-        toggleAdminMode();
-        tapCount = 0;
-        return;
-    }
-    // 連打でなければ普通にヘルプを開く（少し遅延させることで連打判定を優先）
-    if (tapCount === 1) {
-        setTimeout(() => {
-            if (tapCount < 5) openHelp();
-        }, 300);
-    }
-  }
-
-  function toggleAdminMode() {
-    isAdminMode = !isAdminMode;
-    const btn = document.querySelector('.info-btn');
-    const adminPanel = document.getElementById('admin-controls');
-    
-    if (isAdminMode) {
-        alert("【管理者モード】ON\n・他人の予約を操作できます\n・「使用不可」を設定できます");
-        btn.style.background = "red";
-        adminPanel.classList.remove('hidden');
-    } else {
-        alert("【管理者モード】OFF");
-        btn.style.background = "#007bff";
-        adminPanel.classList.add('hidden');
-        document.getElementById('close-mode-chk').checked = false; // チェック外す
-    }
-    render(); // 再描画してクリック判定を更新
+    if (show) el.classList.remove('hidden'); else el.classList.add('hidden');
   }
 
   function openHelp() { document.getElementById('modal-overlay').classList.remove('hidden'); }
   function closeHelp() { document.getElementById('modal-overlay').classList.add('hidden'); }
   function closeEditMenu() { document.getElementById('edit-menu-overlay').classList.add('hidden'); }
+
+  // ★隠しコマンド処理
+  function handleInfoTap() {
+    tapCount++;
+    if (tapTimer) clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => { tapCount = 0; }, 2000); // 2秒以内に連打
+
+    if (tapCount >= 5) {
+      tapCount = 0;
+      isAdminMode = !isAdminMode;
+      const btn = document.getElementById('info-btn');
+      const adminDiv = document.getElementById('admin-controls');
+      
+      if (isAdminMode) {
+        alert("【管理者モードON】\n他人の予約編集・削除、道場閉鎖設定が可能です。");
+        btn.classList.add('admin-active');
+        adminDiv.classList.remove('hidden');
+      } else {
+        alert("【管理者モードOFF】");
+        btn.classList.remove('admin-active');
+        adminDiv.classList.add('hidden');
+        document.getElementById('admin-close-check').checked = false;
+      }
+      render(); // 再描画してクリック判定を更新
+    } else if (tapCount === 1) {
+      // 1回タップなら通常のヘルプ（少し待って連打でなければ開く）
+      setTimeout(() => {
+        if (tapCount < 2) openHelp();
+      }, 300);
+    }
+  }
   
   function getJstDate(offset = 0) {
     const d = new Date(); d.setDate(d.getDate() + offset);
@@ -277,12 +247,7 @@
     const roleStatus = (me.role === 'カギ') ? '<span style="color:green; font-size:12px;">[権限あり]</span>' : '<span style="color:red; font-size:12px;">[権限なし]</span>';
     document.getElementById('u-name').innerHTML = me.name + " さん " + roleStatus;
     document.getElementById('res-date-display').value = getJstDate().replace(/-/g,'/');
-    try {
-      render();
-    } catch(e) {
-      console.error(e);
-      alert("描画エラー: " + e.message);
-    }
+    try { render(); } catch(e) { console.error(e); }
     if (isNewUser) openHelp();
   }
 
@@ -290,9 +255,7 @@
     document.getElementById('res-date-display').value = dStr.replace(/-/g,'/');
     const btn = document.querySelector('.btn-res');
     
-    // 管理者モードで「使用不可」を編集する場合の対応
-    const isAdminEdit = isAdminMode && resId;
-
+    // 編集モードの場合
     if (resId) {
       editModeId = resId;
       document.getElementById('start-t').value = startT;
@@ -320,7 +283,6 @@
     document.getElementById('btn-delete-mode').onclick = async () => {
       if(confirm("本当に削除しますか？")) {
         closeEditMenu(); toggleLoading(true);
-        // 管理者モード等に関わらずIDを指定して削除
         await callGAS({ action: 'deleteRes', id: tempEditData.resId });
         reloadRes();
       }
@@ -331,9 +293,9 @@
     const dStr = document.getElementById('res-date-display').value.replace(/\//g,'-'), 
           s = document.getElementById('start-t').value, e = document.getElementById('end-t').value;
     
-    // 管理者モード：「使用不可」設定のチェック
-    const isCloseMode = isAdminMode && document.getElementById('close-mode-chk').checked;
-
+    // ★管理者用：閉鎖チェック
+    const isCloseMode = document.getElementById('admin-close-check').checked;
+    
     if(s >= e) return alert("時間が不正です");
 
     const endParts = e.split(':').map(Number);
@@ -343,20 +305,23 @@
     
     const sV = s.split(':').map(Number).reduce((h, m) => h + m/60);
     const eV = e.split(':').map(Number).reduce((h, m) => h + m/60);
-
-    // 重複チェック（使用不可モードで自分が登録しようとしている場合は無視する）
+    
+    // 重複チェック（管理者モードで閉鎖設定する時も、既存予約とかぶらないか一応チェックするが、閉鎖で上書きしたい場合はここを緩めることも可能。今回は安全のためチェック維持）
     const isClosed = resList.some(r => {
-      // 自分が今編集しているIDは除外
+      // 自分自身の編集時は除外
       if (editModeId && r[0] == editModeId) return false;
-
-      if (r[4] !== dStr || r[3] !== "道場使用不可") return false;
-      const rs = r[5].split(':').map(Number).reduce((h, m) => h + m/60);
-      const re = r[6].split(':').map(Number).reduce((h, m) => h + m/60);
-      return (sV < re && eV > rs);
+      
+      if (r[4] !== dStr) return false; // 日付違い
+      // 既存が「使用不可」なら、通常ユーザーは予約不可
+      if (!isCloseMode && r[3] === "道場使用不可") {
+         const rs = r[5].split(':').map(Number).reduce((h, m) => h + m/60);
+         const re = r[6].split(':').map(Number).reduce((h, m) => h + m/60);
+         return (sV < re && eV > rs);
+      }
+      return false;
     });
     
-    // 使用不可設定時以外は、閉鎖時間帯のエラーを出す
-    if (isClosed && !isCloseMode) return alert("道場使用不可の時間帯です");
+    if (isClosed && !isAdminMode) return alert("道場使用不可の時間帯です");
 
     toggleLoading(true);
     if (editModeId) {
@@ -364,14 +329,14 @@
       editModeId = null;
     }
     
-    // 名前：使用不可モードなら固定文字、それ以外なら自分の名前
-    const regName = isCloseMode ? "道場使用不可" : me.name;
+    // ★送信データ：閉鎖モードなら名前を「道場使用不可」にする
+    const sendName = isCloseMode ? "道場使用不可" : me.name;
+    const sendRole = isCloseMode ? "道場使用不可" : me.role;
 
-    await callGAS({ action: 'saveRes', name: regName, role: me.role, date: dStr, start: s, end: e });
+    await callGAS({ action: 'saveRes', name: sendName, role: sendRole, date: dStr, start: s, end: e });
     
-    // 完了後、チェックを外す
-    if(isCloseMode) document.getElementById('close-mode-chk').checked = false;
-    
+    // 完了したらチェックを外す
+    document.getElementById('admin-close-check').checked = false;
     reloadRes();
   }
 
@@ -414,55 +379,24 @@
            if (res[3] === "道場使用不可") div.style.zIndex = "30";
         }
         
-        // ★ここが重要：自分の予約 または 管理者モードならクリック可能にする
+        // ★修正：自分の予約 または 管理者モードならクリック可能にする
         if (isMyRes || isAdminMode) {
-           // 管理者モードで、かつ他人の予約の場合は赤枠線を追加してわかりやすくする
-           if (isAdminMode && !isMyRes) {
-             div.classList.add('admin-clickable');
-           }
+           // 他人の予約をいじるときはpointer-eventsをautoにする必要がある（CSSでnoneになっている場合があるため）
+           div.style.pointerEvents = "auto";
+           div.style.cursor = "pointer";
            div.onclick = (e) => { e.stopPropagation(); openEditMenu(date, res[5], res[6], res[0]); };
-        } else {
-           // 通常モードの他人の予約はクリック不可
-           div.style.pointerEvents = 'none';
         }
-
         cell.appendChild(div);
       };
 
       dayRes.filter(r => r[1] === '予定' || r[3] === '道場使用不可').forEach(res => {
-        const isMyRes = (res[3] === me.name);
-        drawBar(res, `unified-res-bar ${res[3] === "道場使用不可" ? 'closed' : 'personal'}`, isMyRes);
+        drawBar(res, `unified-res-bar ${res[3] === "道場使用不可" ? 'closed' : 'personal'}`, false);
       });
-      
       dayRes.filter(r => r[1] === '希望').forEach(req => {
-         // 管理者なら希望（オレンジ）も消せるようにする
-         const isMyRes = (req[3] === me.name);
-         // 希望バーも管理者ならクリック可能にしたいが、クラス構成上難しいので今回は割愛、あるいは必要なら追加可能
-         const cell = document.getElementById(`c-${date}-${Math.floor(req.sVal)}`);
-         if(cell) {
-             const el = document.createElement('div');
-             el.className = 'request-style';
-             el.style.height = ((req.eVal - req.sVal) * hPx) + "px";
-             el.style.top = ((req.sVal % 1) * hPx) + "px";
-             if(isAdminMode) {
-                 el.style.pointerEvents = 'auto';
-                 el.onclick = (e) => { e.stopPropagation(); openEditMenu(date, req[5], req[6], req[0]); };
-             }
-             cell.appendChild(el);
-         }
+        drawBar(req, 'request-style', false);
       });
-      
-      // 自分の予約枠（黄色）は描画するが、管理者モードでもクリックイベントは上のdrawBarで設定済み
       dayRes.filter(r => r[3] === me.name).forEach(myR => {
-        const cell = document.getElementById(`c-${date}-${Math.floor(myR.sVal)}`);
-        if (!cell) return;
-        const outline = document.createElement('div');
-        outline.className = 'my-res-outline';
-        outline.style.height = ((myR.eVal - myR.sVal) * hPx) + "px";
-        outline.style.top = ((myR.sVal % 1) * hPx) + "px";
-        // 重複してイベントがつかないようにする
-        outline.style.pointerEvents = 'none'; 
-        cell.appendChild(outline);
+        drawBar(myR, 'my-res-outline', true);
       });
     });
   }
@@ -472,12 +406,8 @@
     for (let h = startH; h <= endH; h++) {
       ['00', '30'].forEach(m => {
         const t = `${h.toString().padStart(2,'0')}:${m}`;
-        if (t !== "21:00" && t !== "21:30") {
-            s.add(new Option(t, t)); 
-        }
-        if (t !== "21:30") {
-            e.add(new Option(t, t));
-        }
+        if (t !== "21:00" && t !== "21:30") s.add(new Option(t, t)); 
+        if (t !== "21:30") e.add(new Option(t, t));
       });
     }
     setTimeout(initLiff, 500);
