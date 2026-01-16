@@ -291,7 +291,9 @@
     const th = document.getElementById('th'), tb = document.getElementById('tb');
     th.innerHTML = '<th class="time-col"></th>'; tb.innerHTML = '';
     const days = [], labels = ["日","月","火","水","木","金","土"];
-    for(let i=0; i<=7; i++){
+    
+    // ★修正箇所：i <= 7 (8日間) を i < 7 (7日間) に変更
+    for(let i=0; i<7; i++){
       let d = new Date(); d.setDate(d.getDate() + i);
       const s = getJstDate(i); days.push(s);
       th.insertAdjacentHTML('beforeend', `<th>${d.getMonth()+1}/${d.getDate()}(${labels[d.getDay()]})</th>`);
@@ -309,12 +311,12 @@
         return { ...r, sVal: s[0] + s[1]/60, eVal: e[0] + e[1]/60 };
       });
 
-      // 共通の描画処理関数（ここを修正：21時で強制カット）
+      // 共通の描画処理関数（21時で強制カット）
       const drawBar = (res, className, isMyRes) => {
         const cell = document.getElementById(`c-${date}-${Math.floor(res.sVal)}`);
         if (!cell) return;
         
-        // ★修正点：終了時間が21:00 (endH) を超えていたら、強制的に21:00にする
+        // 終了時間が21:00 (endH) を超えていたら、強制的に21:00にする
         const safeEndVal = Math.min(res.eVal, endH);
         
         const div = document.createElement('div');
@@ -351,13 +353,12 @@
       ['00', '30'].forEach(m => {
         const t = `${h.toString().padStart(2,'0')}:${m}`;
         
-        // ★修正点：厳密に選択肢を除外
-        // 開始時間：21:00と21:30を除外（20:30スタートが最後）
+        // 開始時間：21:00と21:30を除外
         if (t !== "21:00" && t !== "21:30") {
             s.add(new Option(t, t)); 
         }
 
-        // 終了時間：21:30のみ除外（21:00終了はOK）
+        // 終了時間：21:30のみ除外
         if (t !== "21:30") {
             e.add(new Option(t, t));
         }
