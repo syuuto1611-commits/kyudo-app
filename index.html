@@ -7,14 +7,14 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     /* --- ベース設定 --- */
-    body { font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif; background: #f4f7f6; margin: 0; padding: 5px; overscroll-behavior: none; }
+    body { font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif; background: #f4f7f6; margin: 0; padding: 10px; overscroll-behavior: none; }
     .hidden { display: none !important; }
 
     /* --- カード --- */
     .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; position: relative; }
     
     /* --- フォーム --- */
-    input, select, button { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #333; box-sizing: border-box; font-size: 16px; border-radius: 4px; }
+    input, select, button { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #333; box-sizing: border-box; font-size: 16px; border-radius: 4px; }
     input[readonly] { background: #EDF2F7; color: #2B6CB0; text-align: center; font-weight: bold; }
     
     /* --- ボタン --- */
@@ -39,81 +39,45 @@
     .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
     .btn-row button { margin: 0; flex: 1; }
 
-    /* --- テーブル (画面幅にフィット + スクロール加速) --- */
+    /* --- テーブル --- */
     .table-container { 
-      background: white; 
-      max-height: 75vh; 
-      border-top: 1px solid #000; 
-      border-left: 1px solid #000;
+      overflow: auto; background: white; max-height: 70vh; 
+      border-top: 1px solid #000; border-left: 1px solid #000;
       position: relative;
-      
-      /* ★スクロール加速設定 */
-      overscroll-behavior: none; 
-      -webkit-overflow-scrolling: touch; /* 慣性スクロール有効化 */
-      overflow-x: hidden; 
-      overflow-y: auto;
-      
-      /* ★GPU描画強制（滑らかさUP） */
-      transform: translateZ(0);
-      will-change: scroll-position;
+      overscroll-behavior: none; -webkit-overflow-scrolling: touch;
+      will-change: scroll-position; transform: translateZ(0);
     }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; min-width: 600px; }
     
-    table { 
-      width: 100%; 
-      border-collapse: separate; 
-      border-spacing: 0; 
-      table-layout: fixed; 
-    }
-
+    /* ★修正箇所：ここに position: relative; を戻しました！ */
     th, td { 
       height: 50px; padding: 0; margin: 0; box-sizing: border-box;
       border-right: 1px solid #000; border-bottom: 1px solid #000; 
-      background-clip: padding-box; 
-      /* チラつき防止 */
-      -webkit-backface-visibility: hidden;
-      backface-visibility: hidden;
+      background-clip: padding-box; -webkit-backface-visibility: hidden;
       position: relative; 
     }
     
-    th { 
-      background: #eee; font-size: 10px; height: 40px; text-align: center; 
-      position: sticky; top: 0; z-index: 50; 
-      /* 固定ヘッダーの描画最適化 */
-      will-change: transform;
-    }
-    
-    /* 時間列 */
-    .time-col { 
-      width: 40px; 
-      text-align: center; background: #eee !important; font-weight: bold; font-size: 11px;
-      position: sticky; left: 0; z-index: 60; border-right: 1px solid #000; 
-      /* 固定列の描画最適化 */
-      will-change: transform;
-    }
-    
+    th { background: #eee; font-size: 11px; height: 40px; text-align: center; position: sticky; top: 0; z-index: 50; will-change: transform; }
+    .time-col { width: 50px; text-align: center; background: #eee !important; font-weight: bold; position: sticky; left: 0; z-index: 60; border-right: 1px solid #000; will-change: transform; }
     #th th:first-child { position: sticky; top: 0; left: 0; z-index: 70; background: #eee; }
     
-    /* --- 予約バー (アイコンなし・被り防止) --- */
+    /* --- 予約バー --- */
     .unified-res-bar { 
       position: absolute; left: 0; width: 100%; box-sizing: border-box; z-index: 20; 
       border-top: 1px solid #000; border-bottom: 1px solid #000; 
       font-size: 10px; font-weight: bold; padding: 2px 4px;
       pointer-events: none; overflow: hidden;
-      display: flex; align-items: flex-start; justify-content: flex-start;
-      padding-right: 22%; 
-      white-space: nowrap; text-overflow: ellipsis; 
+      display: flex; align-items: center; gap: 4px;
     }
-
-    /* 希望のオレンジ枠 (右端20%) */
-    .request-style { 
-      position: absolute; right: 0; width: 20%; box-sizing: border-box; z-index: 35; 
-      background: #ffb347; border-left: 1px solid #000; 
-      pointer-events: none; 
+    .user-icon {
+      width: 20px; height: 20px; border-radius: 50%; 
+      object-fit: cover; border: 1px solid #fff;
+      flex-shrink: 0; background: #ccc;
     }
-    
+    .request-style { position: absolute; right: 0; width: 20%; box-sizing: border-box; z-index: 35; background: #ffb347; border: 1px solid #000; pointer-events: none; }
     .my-res-outline { position: absolute; left: 0; width: 100%; box-sizing: border-box; border: 3px solid #FFD700 !important; z-index: 40; pointer-events: auto; cursor: pointer; }
     .personal { background: #add8e6; } 
-    .closed { background: #999999 !important; color: white; align-items: center; justify-content: center; padding-right: 0; }
+    .closed { background: #999999 !important; color: white; justify-content: center; }
     .color-box { display: inline-block; width: 12px; height: 12px; margin-right: 5px; border: 1px solid #000; }
     .clickable { cursor: pointer; height: 100%; width: 100%; position: absolute; top: 0; left: 0; z-index: 5; }
     
@@ -189,6 +153,7 @@
 
 <script>
   const LIFF_ID = '2008892711-dVDOw8oH'; 
+  // ★あなたが直前に送ってくれたURLを入れておきました！
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzkmoy7CDtPUzKkVqFiFkHt28Y8gWhZvHvn8Oddpy1tJIOzRWPw14KQDsNAXMqwfBCH/exec'; 
 
   let me = null, resList = [], myLineId = "";
@@ -223,8 +188,12 @@
       if (!liff.isLoggedIn()) { liff.login(); return; }
       const profile = await liff.getProfile();
       myLineId = profile.userId;
+      
+      const pictureUrl = profile.pictureUrl;
+
       toggleLoading(true);
-      const data = await callGAS({ action: 'checkUser', userId: myLineId });
+      const data = await callGAS({ action: 'checkUser', userId: myLineId, pic: pictureUrl });
+      
       if (data.userData) {
         me = data.userData;
         resList = data.reservations || [];
@@ -243,8 +212,11 @@
     const name = document.getElementById('new-name').value;
     const sid = document.getElementById('sid').value;
     if(!name || !sid) return showMsg("入力してください");
+    
+    const profile = await liff.getProfile();
     toggleLoading(true);
-    const data = await callGAS({ action: 'register', userId: myLineId, name: name, sid: sid });
+    const data = await callGAS({ action: 'register', userId: myLineId, name: name, sid: sid, pic: profile.pictureUrl });
+    
     if (data.userData) {
       me = data.userData;
       resList = data.reservations || [];
@@ -255,7 +227,8 @@
 
   async function reloadRes() {
     toggleLoading(true);
-    const data = await callGAS({ action: 'reload', userId: myLineId });
+    const profile = await liff.getProfile();
+    const data = await callGAS({ action: 'reload', userId: myLineId, pic: profile.pictureUrl });
     resList = data.reservations || [];
     render();
     toggleLoading(false);
@@ -332,14 +305,11 @@
     const th = document.getElementById('th'), tb = document.getElementById('tb');
     th.innerHTML = '<th class="time-col"></th>'; tb.innerHTML = '';
     const days = [], labels = ["日","月","火","水","木","金","土"];
-    
-    // 5日分
-    for(let i=0; i<5; i++){
+    for(let i=0; i<=7; i++){
       let d = new Date(); d.setDate(d.getDate() + i);
       const s = getJstDate(i); days.push(s);
-      th.insertAdjacentHTML('beforeend', `<th>${d.getMonth()+1}/${d.getDate()}<br><span style="font-size:10px">(${labels[d.getDay()]})</span></th>`);
+      th.insertAdjacentHTML('beforeend', `<th>${d.getMonth()+1}/${d.getDate()}(${labels[d.getDay()]})</th>`);
     }
-
     for (let h = startH; h < endH; h++) {
       let r = `<tr><td class="time-col">${h}:00</td>`;
       days.forEach(d => { r += `<td id="c-${d}-${h}"><div class="clickable" onclick="setTime('${d}',${h})"></div></td>`; });
@@ -360,6 +330,12 @@
         bar.style.top = ((res.sVal % 1) * hPx) + "px";
         if (isClosed) bar.style.zIndex = "30";
         
+        if (!isClosed && res[7]) {
+           const img = document.createElement('img');
+           img.src = res[7];
+           img.className = 'user-icon';
+           bar.appendChild(img);
+        }
         const span = document.createElement('span');
         span.innerText = isClosed ? "使用不可" : res[3];
         bar.appendChild(span);
