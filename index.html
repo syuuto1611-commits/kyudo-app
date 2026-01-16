@@ -42,14 +42,12 @@
     /* --- テーブル (画面幅にフィット) --- */
     .table-container { 
       background: white; 
-      /* 高さ制限は維持 */
       max-height: 75vh; 
       border-top: 1px solid #000; 
       border-left: 1px solid #000;
       position: relative;
       overscroll-behavior: none; 
       -webkit-overflow-scrolling: touch;
-      /* 横スクロール禁止 */
       overflow-x: hidden; 
       overflow-y: auto;
     }
@@ -58,7 +56,7 @@
       width: 100%; 
       border-collapse: separate; 
       border-spacing: 0; 
-      table-layout: fixed; /* 列幅を固定 */
+      table-layout: fixed; 
     }
 
     th, td { 
@@ -69,14 +67,13 @@
     }
     
     th { 
-      background: #eee; font-size: 10px; height: 40px; text-align: center; 
+      background: #eee; font-size: 9px; height: 42px; text-align: center; 
       position: sticky; top: 0; z-index: 50; 
     }
     
-    /* 時間列の幅を少し細くして、日付列を確保 */
     .time-col { 
-      width: 40px; /* 時間列を40pxに固定 */
-      text-align: center; background: #eee !important; font-weight: bold; font-size: 11px;
+      width: 35px; /* 7日間表示用に少し幅を詰める */
+      text-align: center; background: #eee !important; font-weight: bold; font-size: 10px;
       position: sticky; left: 0; z-index: 60; border-right: 1px solid #000; 
     }
     
@@ -86,22 +83,16 @@
     .unified-res-bar { 
       position: absolute; left: 0; width: 100%; box-sizing: border-box; z-index: 20; 
       border-top: 1px solid #000; border-bottom: 1px solid #000; 
-      font-size: 10px; font-weight: bold; padding: 2px 4px;
+      font-size: 9px; font-weight: bold; padding: 2px 1px;
       pointer-events: none; overflow: hidden;
-      
-      /* 左上配置 */
       display: flex; align-items: flex-start; justify-content: flex-start;
-      
-      /* ★重要：右端20%(希望枠)には文字が絶対に入らないようにする */
       padding-right: 22%; 
-      white-space: nowrap; /* 文字折り返しなし */
-      text-overflow: ellipsis; /* 長すぎたら...にする */
+      white-space: nowrap; text-overflow: ellipsis; 
     }
 
-    /* 希望のオレンジ枠 (右端20%) */
     .request-style { 
       position: absolute; right: 0; width: 20%; box-sizing: border-box; z-index: 35; 
-      background: #ffb347; border-left: 1px solid #000; /* 区切り線を追加 */
+      background: #ffb347; border-left: 1px solid #000;
       pointer-events: none; 
     }
     
@@ -218,7 +209,6 @@
       const profile = await liff.getProfile();
       myLineId = profile.userId;
       toggleLoading(true);
-      // アイコンURL送信は不要なので削除
       const data = await callGAS({ action: 'checkUser', userId: myLineId });
       if (data.userData) {
         me = data.userData;
@@ -328,12 +318,11 @@
     th.innerHTML = '<th class="time-col"></th>'; tb.innerHTML = '';
     const days = [], labels = ["日","月","火","水","木","金","土"];
     
-    // 5日分
-    for(let i=0; i<5; i++){
+    // ★ここを修正：表示日数を7日に変更
+    for(let i=0; i<7; i++){
       let d = new Date(); d.setDate(d.getDate() + i);
       const s = getJstDate(i); days.push(s);
-      // 日付も小さくして入るように
-      th.insertAdjacentHTML('beforeend', `<th>${d.getMonth()+1}/${d.getDate()}<br><span style="font-size:10px">(${labels[d.getDay()]})</span></th>`);
+      th.insertAdjacentHTML('beforeend', `<th>${d.getMonth()+1}/${d.getDate()}<br><span style="font-size:9px">(${labels[d.getDay()]})</span></th>`);
     }
 
     for (let h = startH; h < endH; h++) {
@@ -356,7 +345,6 @@
         bar.style.top = ((res.sVal % 1) * hPx) + "px";
         if (isClosed) bar.style.zIndex = "30";
         
-        // アイコン削除、名前のみ表示
         const span = document.createElement('span');
         span.innerText = isClosed ? "使用不可" : res[3];
         bar.appendChild(span);
