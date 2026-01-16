@@ -3,194 +3,106 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  
   <title>弓道場予約</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    /* --- ベース設定 --- */
+    /* --- 全体設定 --- */
     body { font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif; background: #f4f7f6; margin: 0; padding: 5px; overscroll-behavior: none; }
     .hidden { display: none !important; }
 
-    /* --- カード --- */
-    .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; position: relative; }
+    /* --- 操作カード --- */
+    .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; position: relative; height: 105px; box-sizing: border-box; }
+    #u-name { font-size: 13px; font-weight: bold; position: absolute; top: 10px; left: 10px; }
     
-    /* --- フォーム --- */
-    input, select, button { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #333; box-sizing: border-box; font-size: 16px; border-radius: 4px; }
-    input[readonly] { background: #EDF2F7; color: #2B6CB0; text-align: center; font-weight: bold; }
-    
-    /* --- ボタン --- */
-    button { background: #333; color: white; font-weight: bold; cursor: pointer; }
-    .btn-res { background: #28a745; border: none; }
+    /* 右上ボタンエリア */
+    .header-btns { position: absolute; top: 8px; right: 10px; display: flex; gap: 10px; align-items: center; }
+    .reload-btn { width: 26px; height: 26px; background: #6c757d; color: white; border-radius: 50%; text-align: center; line-height: 26px; font-weight: bold; cursor: pointer; border: none; padding: 0; font-size: 16px; }
+    .info-btn { width: 26px; height: 26px; background: #007bff; color: white; border-radius: 50%; text-align: center; line-height: 26px; font-weight: bold; cursor: pointer; font-size: 16px; }
+
+    /* フォーム要素 */
+    .form-row { position: absolute; top: 38px; left: 10px; right: 10px; display: flex; gap: 5px; }
+    input, select { padding: 5px; border: 1px solid #333; box-sizing: border-box; font-size: 14px; border-radius: 4px; height: 30px; }
+    #res-date-display { flex: 1.2; text-align: center; background: #EDF2F7; color: #2B6CB0; font-weight: bold; }
+    #start-t, #end-t { flex: 1; }
+
+    /* 予約ボタン */
+    .btn-res { position: absolute; bottom: 10px; left: 10px; right: 10px; background: #28a745; border: none; color: white; font-weight: bold; cursor: pointer; width: calc(100% - 20px); height: 30px; border-radius: 4px; font-size: 14px; }
     .btn-update { background: #ffc107 !important; color: #000 !important; }
-    .info-btn { position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; background: #007bff; color: white; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; cursor: pointer; }
 
-    /* --- モーダル --- */
-    #modal-overlay, #edit-menu-overlay, #alert-overlay, #confirm-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.6); z-index: 10000; 
-      display: flex; justify-content: center; align-items: center;
-      backdrop-filter: blur(2px);
-      overscroll-behavior: contain;
-    }
-    .modal-content {
-      background: white; padding: 20px; border-radius: 12px; width: 85%; max-width: 350px;
-      text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-    }
-    .modal-content h3 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
-    .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
-    .btn-row button { margin: 0; flex: 1; }
-
-    /* --- テーブル (画面幅にフィット) --- */
+    /* --- テーブル --- */
     .table-container { 
-      background: white; 
-      /* 高さ制限は維持 */
-      max-height: 75vh; 
-      border-top: 1px solid #000; 
-      border-left: 1px solid #000;
-      position: relative;
-      overscroll-behavior: none; 
-      -webkit-overflow-scrolling: touch;
-      /* 横スクロール禁止 */
-      overflow-x: hidden; 
-      overflow-y: auto;
+      background: white; height: calc(100vh - 125px); border-top: 1px solid #000; border-left: 1px solid #000; position: relative;
+      overscroll-behavior: none; -webkit-overflow-scrolling: touch; overflow-x: hidden; overflow-y: auto;
+      transform: translateZ(0); will-change: scroll-position;
     }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+    th, td { height: 38px; padding: 0; margin: 0; box-sizing: border-box; border-right: 1px solid #000; border-bottom: 1px solid #000; background-clip: padding-box; -webkit-backface-visibility: hidden; position: relative; }
     
-    table { 
-      width: 100%; 
-      border-collapse: separate; 
-      border-spacing: 0; 
-      table-layout: fixed; /* 列幅を固定 */
-    }
-
-    th, td { 
-      height: 50px; padding: 0; margin: 0; box-sizing: border-box;
-      border-right: 1px solid #000; border-bottom: 1px solid #000; 
-      background-clip: padding-box; -webkit-backface-visibility: hidden;
-      position: relative; 
-    }
-    
-    th { 
-      background: #eee; font-size: 10px; height: 40px; text-align: center; 
-      position: sticky; top: 0; z-index: 50; 
-    }
-    
-    /* 時間列の幅を少し細くして、日付列を確保 */
-    .time-col { 
-      width: 40px; /* 時間列を40pxに固定 */
-      text-align: center; background: #eee !important; font-weight: bold; font-size: 11px;
-      position: sticky; left: 0; z-index: 60; border-right: 1px solid #000; 
-    }
-    
+    th { background: #eee; font-size: 10px; height: 30px; text-align: center; position: sticky; top: 0; z-index: 50; will-change: transform; }
+    .time-col { width: 40px; text-align: center; background: #eee !important; font-weight: bold; font-size: 11px; position: sticky; left: 0; z-index: 60; border-right: 1px solid #000; line-height: 38px; will-change: transform; }
     #th th:first-child { position: sticky; top: 0; left: 0; z-index: 70; background: #eee; }
     
-    /* --- 予約バー (アイコンなし・被り防止) --- */
+    /* --- 予約バー（アイコン要素を完全に排除したシンプル設定） --- */
     .unified-res-bar { 
       position: absolute; left: 0; width: 100%; box-sizing: border-box; z-index: 20; 
-      border-top: 1px solid #000; border-bottom: 1px solid #000; 
-      font-size: 10px; font-weight: bold; padding: 2px 4px;
-      pointer-events: none; overflow: hidden;
-      
-      /* 左上配置 */
-      display: flex; align-items: flex-start; justify-content: flex-start;
-      
-      /* ★重要：右端20%(希望枠)には文字が絶対に入らないようにする */
-      padding-right: 22%; 
-      white-space: nowrap; /* 文字折り返しなし */
-      text-overflow: ellipsis; /* 長すぎたら...にする */
+      border-top: 1px solid #000; border-bottom: 1px solid #000; font-size: 9px; font-weight: bold; padding: 2px;
+      pointer-events: none; overflow: hidden; display: flex; align-items: flex-start; justify-content: flex-start;
+      padding-right: 22%; white-space: nowrap; text-overflow: ellipsis; line-height: 1.2;
     }
-
-    /* 希望のオレンジ枠 (右端20%) */
-    .request-style { 
-      position: absolute; right: 0; width: 20%; box-sizing: border-box; z-index: 35; 
-      background: #ffb347; border-left: 1px solid #000; /* 区切り線を追加 */
-      pointer-events: none; 
-    }
-    
+    .request-style { position: absolute; right: 0; width: 20%; box-sizing: border-box; z-index: 35; background: #ffb347; border-left: 1px solid #000; pointer-events: none; }
     .my-res-outline { position: absolute; left: 0; width: 100%; box-sizing: border-box; border: 3px solid #FFD700 !important; z-index: 40; pointer-events: auto; cursor: pointer; }
     .personal { background: #add8e6; } 
     .closed { background: #999999 !important; color: white; align-items: center; justify-content: center; padding-right: 0; }
     .color-box { display: inline-block; width: 12px; height: 12px; margin-right: 5px; border: 1px solid #000; }
     .clickable { cursor: pointer; height: 100%; width: 100%; position: absolute; top: 0; left: 0; z-index: 5; }
     
-    /* ローディング */
+    /* --- モーダル・ローディング --- */
+    #modal-overlay, #edit-menu-overlay, #alert-overlay, #confirm-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+    .modal-content { background: white; padding: 20px; border-radius: 12px; width: 85%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+    .modal-content h3 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+    .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+    .btn-row button { margin: 0; flex: 1; padding:10px; border:none; border-radius:4px; color:white; font-weight:bold; }
     #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
-    .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
+    .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
 
-  <div id="alert-overlay" class="hidden">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <h3 id="alert-title">お知らせ</h3>
-      <p id="alert-msg" style="white-space: pre-wrap; margin-bottom: 20px;"></p>
-      <button onclick="closeAlert()" style="background:#333;">閉じる</button>
-    </div>
-  </div>
-  <div id="confirm-overlay" class="hidden">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <h3>確認</h3>
-      <p id="confirm-msg" style="margin-bottom: 20px;">本当に実行しますか？</p>
-      <div class="btn-row">
-        <button id="confirm-yes" style="background:#dc3545;">はい</button>
-        <button onclick="closeConfirm()" style="background:#6c757d;">いいえ</button>
-      </div>
-    </div>
-  </div>
-  <div id="edit-menu-overlay" class="hidden" onclick="closeEditMenu()">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <h3>予約の操作</h3>
-      <button id="btn-edit-mode" style="background:#ffc107; color:black; margin-bottom:10px;">時間を変更する</button>
-      <button id="btn-delete-mode" style="background:#dc3545; color:white; margin-bottom:10px;">この予約を削除する</button>
-      <button onclick="closeEditMenu()" style="background:#6c757d; color:white;">閉じる</button>
-    </div>
-  </div>
-  <div id="modal-overlay" class="hidden" onclick="closeHelp()">
-    <div class="modal-content" onclick="event.stopPropagation()" style="text-align:left;">
-      <h3 style="text-align:center;">説明</h3>
-      <p><b>■ 予約</b><br>表をタップして時間を選び、確定してください。</p>
-      <p><b>■ 色の意味</b><br>
-      <span class="color-box personal"></span>青：予定（カギ権限）<br>
-      <span class="color-box" style="background:#ffb347; width:10px; border:1px solid #000;"></span>橙：希望（一般）<br>
-      <span class="color-box" style="background:#999999;"></span>灰：不可<br>
-      <span style="display:inline-block; width:12px; height:12px; border:3px solid #FFD700; margin-right:5px;"></span>黄枠：自分の予約</p>
-      <button onclick="closeHelp()" style="margin-top:10px; background:#007bff;">閉じる</button>
-    </div>
-  </div>
+  <div id="alert-overlay" class="hidden"><div class="modal-content"><h3 id="alert-title">通知</h3><p id="alert-msg"></p><button onclick="closeAlert()" style="background:#333; width:100%; padding:10px; color:white; border:none; border-radius:4px;">閉じる</button></div></div>
+  <div id="confirm-overlay" class="hidden"><div class="modal-content"><h3>確認</h3><p id="confirm-msg"></p><div class="btn-row"><button id="confirm-yes" style="background:#dc3545;">はい</button><button onclick="closeConfirm()" style="background:#6c757d;">いいえ</button></div></div></div>
+  <div id="edit-menu-overlay" class="hidden" onclick="closeEditMenu()"><div class="modal-content"><h3>予約の操作</h3><div style="display:flex; flex-direction:column; gap:10px;"><button id="btn-edit-mode" style="background:#ffc107; color:black; padding:10px; border:none; border-radius:4px;">時間を変更する</button><button id="btn-delete-mode" style="background:#dc3545; color:white; padding:10px; border:none; border-radius:4px;">この予約を削除する</button><button onclick="closeEditMenu()" style="background:#6c757d; color:white; padding:10px; border:none; border-radius:4px;">閉じる</button></div></div></div>
+  <div id="modal-overlay" class="hidden" onclick="closeHelp()"><div class="modal-content"><h3>説明</h3><p>枠をタップして時間を選び確定。</p><div style="text-align:left; font-size:12px;"><span class="color-box personal"></span>青：予定(カギ)<br><span class="color-box" style="background:#ffb347;"></span>橙：希望(一般)<br><span class="color-box" style="background:#999999;"></span>灰：不可</div><button onclick="closeHelp()" style="width:100%; background:#007bff; color:white; border:none; padding:10px; margin-top:10px; border-radius:4px;">閉じる</button></div></div>
 
   <div id="loading"><div class="spinner"></div></div>
 
-  <div id="reg-page" class="card hidden">
-    <h3 style="text-align:center;">初期登録</h3>
-    <p style="font-size:12px; color:gray;">初回のみ登録が必要です。</p>
-    <input type="text" id="new-name" placeholder="お名前">
-    <input type="text" id="sid" placeholder="学籍番号（下4桁）" inputmode="numeric">
-    <button onclick="register()">登録して開始</button>
-  </div>
+  <div id="reg-page" class="card hidden" style="height:auto;"><h3 style="text-align:center;">初期登録</h3><input type="text" id="new-name" placeholder="お名前"><input type="text" id="sid" placeholder="学籍番号（下4桁）" inputmode="numeric"><button onclick="register()" style="width:100%; background:#333; color:white; padding:10px; border:none; border-radius:4px;">登録して開始</button></div>
 
   <div id="main-page" class="hidden">
     <div class="card">
-      <div class="info-btn" onclick="openHelp()">i</div>
-      <div id="u-name" style="font-weight:bold; margin-bottom:5px;"></div>
-      <button onclick="reloadRes()" style="background:#6c757d; padding:8px; font-size:13px;">更新</button>
-      <input type="text" id="res-date-display" readonly>
-      <div style="display:flex; gap:5px;"><select id="start-t"></select><select id="end-t"></select></div>
+      <div id="u-name"></div>
+      <div class="header-btns"><button class="reload-btn" onclick="reloadRes()">↻</button><div class="info-btn" onclick="openHelp()">i</div></div>
+      <div class="form-row"><input type="text" id="res-date-display" readonly><select id="start-t"></select><select id="end-t"></select></div>
       <button class="btn-res" onclick="add()">予約を確定</button>
     </div>
-    <div class="table-container">
-      <table><thead><tr id="th"></tr></thead><tbody id="tb"></tbody></table>
-    </div>
+    <div class="table-container"><table><thead><tr id="th"></tr></thead><tbody id="tb"></tbody></table></div>
   </div>
 
 <script>
+  // ★GASのURLをセットしてください
   const LIFF_ID = '2008892711-dVDOw8oH'; 
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzkmoy7CDtPUzKkVqFiFkHt28Y8gWhZvHvn8Oddpy1tJIOzRWPw14KQDsNAXMqwfBCH/exec'; 
 
   let me = null, resList = [], myLineId = "";
   let editModeId = null, tempEditData = null, confirmCallback = null;
-  const startH = 9, endH = 21, hPx = 51;
+  const startH = 9, endH = 21, hPx = 38;
 
   function toggleLoading(show) { document.getElementById('loading').className = show ? "" : "hidden"; }
-  function showMsg(msg, title="お知らせ") { document.getElementById('alert-title').innerText = title; document.getElementById('alert-msg').innerText = msg; document.getElementById('alert-overlay').classList.remove('hidden'); }
+  function showMsg(msg, title="通知") { document.getElementById('alert-title').innerText = title; document.getElementById('alert-msg').innerText = msg; document.getElementById('alert-overlay').classList.remove('hidden'); }
   function closeAlert() { document.getElementById('alert-overlay').classList.add('hidden'); }
   function showConfirm(msg, callback) { document.getElementById('confirm-msg').innerText = msg; confirmCallback = callback; document.getElementById('confirm-overlay').classList.remove('hidden'); }
   document.getElementById('confirm-yes').onclick = function() { document.getElementById('confirm-overlay').classList.add('hidden'); if (confirmCallback) confirmCallback(); };
@@ -218,33 +130,18 @@
       const profile = await liff.getProfile();
       myLineId = profile.userId;
       toggleLoading(true);
-      // アイコンURL送信は不要なので削除
       const data = await callGAS({ action: 'checkUser', userId: myLineId });
-      if (data.userData) {
-        me = data.userData;
-        resList = data.reservations || [];
-        showMain(false);
-      } else {
-        toggleLoading(false);
-        document.getElementById('reg-page').classList.remove('hidden');
-      }
-    } catch (e) {
-      toggleLoading(false);
-      showMsg("エラー: " + e.message, "通信エラー");
-    }
+      if (data.userData) { me = data.userData; resList = data.reservations || []; showMain(); }
+      else { toggleLoading(false); document.getElementById('reg-page').classList.remove('hidden'); }
+    } catch (e) { toggleLoading(false); showMsg("通信エラー: " + e.message); }
   }
 
   async function register() {
-    const name = document.getElementById('new-name').value;
-    const sid = document.getElementById('sid').value;
+    const name = document.getElementById('new-name').value, sid = document.getElementById('sid').value;
     if(!name || !sid) return showMsg("入力してください");
     toggleLoading(true);
     const data = await callGAS({ action: 'register', userId: myLineId, name: name, sid: sid });
-    if (data.userData) {
-      me = data.userData;
-      resList = data.reservations || [];
-      showMain(true);
-    }
+    if (data.userData) { me = data.userData; resList = data.reservations || []; showMain(true); }
     toggleLoading(false);
   }
 
@@ -256,15 +153,15 @@
     toggleLoading(false);
   }
 
-  function showMain(isNewUser) {
+  function showMain(isNew = false) {
     toggleLoading(false);
     document.getElementById('reg-page').classList.add('hidden');
     document.getElementById('main-page').classList.remove('hidden');
     const roleStatus = (me.role === 'カギ') ? '<span style="color:green; font-size:12px;">[権限あり]</span>' : '<span style="color:red; font-size:12px;">[権限なし]</span>';
-    document.getElementById('u-name').innerHTML = me.name + " さん " + roleStatus;
+    document.getElementById('u-name').innerHTML = me.name + " " + roleStatus;
     document.getElementById('res-date-display').value = getJstDate().replace(/-/g,'/');
-    try { render(); } catch(e) { console.error(e); }
-    if (isNewUser) openHelp();
+    render();
+    if (isNew) openHelp();
   }
 
   function setTime(dStr, h, startT = null, endT = null, resId = null) {
@@ -274,7 +171,7 @@
       editModeId = resId;
       document.getElementById('start-t').value = startT;
       document.getElementById('end-t').value = endT;
-      btn.innerText = "予約を修正（保存）";
+      btn.innerText = "修正（保存）";
       btn.classList.add('btn-update');
     } else {
       editModeId = null;
@@ -290,33 +187,16 @@
   function openEditMenu(date, startT, endT, resId) {
     tempEditData = { date, startT, endT, resId };
     document.getElementById('edit-menu-overlay').classList.remove('hidden');
-    document.getElementById('btn-edit-mode').onclick = () => {
-      setTime(tempEditData.date, null, tempEditData.startT, tempEditData.endT, tempEditData.resId);
-      closeEditMenu();
-    };
-    document.getElementById('btn-delete-mode').onclick = () => {
-      closeEditMenu();
-      showConfirm("本当にこの予約を削除しますか？", () => {
-        toggleLoading(true);
-        callGAS({ action: 'deleteRes', id: tempEditData.resId }).then(() => { reloadRes(); });
-      });
-    };
+    document.getElementById('btn-edit-mode').onclick = () => { setTime(tempEditData.date, null, tempEditData.startT, tempEditData.endT, tempEditData.resId); closeEditMenu(); };
+    document.getElementById('btn-delete-mode').onclick = () => { closeEditMenu(); showConfirm("削除しますか？", async () => { toggleLoading(true); await callGAS({ action: 'deleteRes', id: tempEditData.resId }); reloadRes(); }); };
   }
 
   async function add() {
-    const dStr = document.getElementById('res-date-display').value.replace(/\//g,'-'), 
-          s = document.getElementById('start-t').value, e = document.getElementById('end-t').value;
-    if(s >= e) return showMsg("時間は正しく設定してください");
-    const sV = s.split(':').map(Number).reduce((h, m) => h + m/60);
-    const eV = e.split(':').map(Number).reduce((h, m) => h + m/60);
-    const isClosed = resList.some(r => {
-      if (r[4] !== dStr || r[3] !== "道場使用不可") return false;
-      const rs = r[5].split(':').map(Number).reduce((h, m) => h + m/60);
-      const re = r[6].split(':').map(Number).reduce((h, m) => h + m/60);
-      return (sV < re && eV > rs);
-    });
+    const dStr = document.getElementById('res-date-display').value.replace(/\//g,'-'), s = document.getElementById('start-t').value, e = document.getElementById('end-t').value;
+    if(s >= e) return showMsg("時間が正しくありません");
+    const sV = s.split(':').map(Number).reduce((h, m) => h + m/60), eV = e.split(':').map(Number).reduce((h, m) => h + m/60);
+    const isClosed = resList.some(r => { if (r[4] !== dStr || r[3] !== "道場使用不可") return false; const rs = r[5].split(':').map(Number).reduce((h, m) => h + m/60), re = r[6].split(':').map(Number).reduce((h, m) => h + m/60); return (sV < re && eV > rs); });
     if (isClosed) return showMsg("道場使用不可の時間帯です");
-
     toggleLoading(true);
     if (editModeId) { await callGAS({ action: 'deleteRes', id: editModeId }); editModeId = null; }
     await callGAS({ action: 'saveRes', name: me.name, role: me.role, date: dStr, start: s, end: e });
@@ -327,72 +207,52 @@
     const th = document.getElementById('th'), tb = document.getElementById('tb');
     th.innerHTML = '<th class="time-col"></th>'; tb.innerHTML = '';
     const days = [], labels = ["日","月","火","水","木","金","土"];
-    
-    // 5日分
     for(let i=0; i<5; i++){
       let d = new Date(); d.setDate(d.getDate() + i);
       const s = getJstDate(i); days.push(s);
-      // 日付も小さくして入るように
-      th.insertAdjacentHTML('beforeend', `<th>${d.getMonth()+1}/${d.getDate()}<br><span style="font-size:10px">(${labels[d.getDay()]})</span></th>`);
+      th.insertAdjacentHTML('beforeend', `<th>${d.getMonth()+1}/${d.getDate()}<br><span style="font-size:9px">(${labels[d.getDay()]})</span></th>`);
     }
-
     for (let h = startH; h < endH; h++) {
       let r = `<tr><td class="time-col">${h}:00</td>`;
       days.forEach(d => { r += `<td id="c-${d}-${h}"><div class="clickable" onclick="setTime('${d}',${h})"></div></td>`; });
       tb.insertAdjacentHTML('beforeend', r + '</tr>');
     }
     days.forEach(date => {
-      const dayRes = resList.filter(r => r[4] === date).map(r => {
-        const s = r[5].split(':').map(Number), e = r[6].split(':').map(Number);
-        return { ...r, sVal: s[0] + s[1]/60, eVal: e[0] + e[1]/60 };
-      });
-      dayRes.filter(r => r[1] === '予定' || r[3] === '道場使用不可').forEach(res => {
+      const dayRes = resList.filter(r => r[4] === date).map(r => { const s = r[5].split(':').map(Number), e = r[6].split(':').map(Number); return { ...r, sVal: s[0] + s[1]/60, eVal: e[0] + e[1]/60 }; });
+      dayRes.forEach(res => {
         const cell = document.getElementById(`c-${date}-${Math.floor(res.sVal)}`);
         if (!cell) return;
-        const bar = document.createElement('div');
-        const isClosed = res[3] === "道場使用不可";
-        bar.className = `unified-res-bar ${isClosed ? 'closed' : 'personal'}`;
-        bar.style.height = ((res.eVal - res.sVal) * hPx) + "px";
-        bar.style.top = ((res.sVal % 1) * hPx) + "px";
-        if (isClosed) bar.style.zIndex = "30";
-        
-        // アイコン削除、名前のみ表示
-        const span = document.createElement('span');
-        span.innerText = isClosed ? "使用不可" : res[3];
-        bar.appendChild(span);
-
-        cell.appendChild(bar);
-      });
-      dayRes.filter(r => r[1] === '希望').forEach(req => {
-        const cell = document.getElementById(`c-${date}-${Math.floor(req.sVal)}`);
-        if (!cell) return;
-        const el = document.createElement('div');
-        el.className = 'request-style';
-        el.style.height = ((req.eVal - req.sVal) * hPx) + "px";
-        el.style.top = ((req.sVal % 1) * hPx) + "px";
-        cell.appendChild(el);
-      });
-      dayRes.filter(r => r[3] === me.name).forEach(myR => {
-        const cell = document.getElementById(`c-${date}-${Math.floor(myR.sVal)}`);
-        if (!cell) return;
-        const outline = document.createElement('div');
-        outline.className = 'my-res-outline';
-        outline.style.height = ((myR.eVal - myR.sVal) * hPx) + "px";
-        outline.style.top = ((myR.sVal % 1) * hPx) + "px";
-        outline.onclick = (e) => { e.stopPropagation(); openEditMenu(date, myR[5], myR[6], myR[0]); };
-        cell.appendChild(outline);
+        if (res[1] === '予定' || res[3] === '道場使用不可') {
+          const bar = document.createElement('div');
+          const isClosed = res[3] === "道場使用不可";
+          bar.className = `unified-res-bar ${isClosed ? 'closed' : 'personal'}`;
+          bar.style.height = ((res.eVal - res.sVal) * hPx) + "px";
+          bar.style.top = ((res.sVal % 1) * hPx) + "px";
+          if (isClosed) bar.style.zIndex = "30";
+          bar.innerText = isClosed ? "使用不可" : res[3];
+          cell.appendChild(bar);
+        } else if (res[1] === '希望') {
+          const el = document.createElement('div');
+          el.className = 'request-style';
+          el.style.height = ((res.eVal - res.sVal) * hPx) + "px";
+          el.style.top = ((res.sVal % 1) * hPx) + "px";
+          cell.appendChild(el);
+        }
+        if (res[3] === me.name) {
+          const outline = document.createElement('div');
+          outline.className = 'my-res-outline';
+          outline.style.height = ((res.eVal - res.sVal) * hPx) + "px";
+          outline.style.top = ((res.sVal % 1) * hPx) + "px";
+          outline.onclick = (e) => { e.stopPropagation(); openEditMenu(date, res[5], res[6], res[0]); };
+          cell.appendChild(outline);
+        }
       });
     });
   }
 
   (function init(){
     const s = document.getElementById('start-t'), e = document.getElementById('end-t');
-    for (let h = startH; h <= endH; h++) {
-      ['00', '30'].forEach(m => {
-        const t = `${h.toString().padStart(2,'0')}:${m}`;
-        s.add(new Option(t, t)); e.add(new Option(t, t));
-      });
-    }
+    for (let h = startH; h <= endH; h++) { ['00', '30'].forEach(m => { const t = `${h.toString().padStart(2,'0')}:${m}`; s.add(new Option(t, t)); e.add(new Option(t, t)); }); }
     setTimeout(initLiff, 500);
   })();
 </script>
