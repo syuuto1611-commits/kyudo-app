@@ -31,12 +31,11 @@
     .modal-content h3 { margin-top: 0; color: #333; border-bottom: 2px solid #eee; padding-bottom: 5px; }
     .color-box { display: inline-block; width: 12px; height: 12px; margin-right: 5px; border: 1px solid #000; }
 
-    /* ローディング画面（タップ操作をブロックしないように修正） */
     #loading {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(255,255,255,0.85); z-index: 9999;
       display: flex; justify-content: center; align-items: center; flex-direction: column;
-      pointer-events: auto; /* 表示中は操作ブロック */
+      pointer-events: auto;
     }
     #loading.hidden {
       display: none !important;
@@ -54,7 +53,22 @@
     .time-col { width: 50px; text-align: center; background: #eee !important; font-weight: bold; position: sticky; left: 0; z-index: 50; border-right: 2px solid #000; }
     #th th:first-child { position: sticky; left: 0; z-index: 60; background: #eee; }
     
-    .unified-res-bar { position: absolute; left: 0; width: 100%; box-sizing: border-box; z-index: 20; border-top: 1px solid #000; border-bottom: 1px solid #000; font-size: 10px; font-weight: bold; padding: 4px; pointer-events: none; overflow: hidden; }
+    /* 修正ポイント：text-align: left に変更し名前を左上に */
+    .unified-res-bar { 
+      position: absolute; 
+      left: 0; 
+      width: 100%; 
+      box-sizing: border-box; 
+      z-index: 20; 
+      border-top: 1px solid #000; 
+      border-bottom: 1px solid #000; 
+      font-size: 10px; 
+      font-weight: bold; 
+      padding: 2px 4px; 
+      pointer-events: none; 
+      overflow: hidden; 
+      text-align: left; 
+    }
     .request-style { position: absolute; right: 0; width: 20%; box-sizing: border-box; z-index: 35; background: #ffb347; border: 1px solid #000; pointer-events: none; }
     .my-res-outline { position: absolute; left: 0; width: 100%; box-sizing: border-box; border: 4px solid #FFD700 !important; z-index: 40; pointer-events: auto; cursor: pointer; box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
     .personal { background: #add8e6; } 
@@ -147,18 +161,13 @@
 
   async function initLiff() {
     try {
-      // 強制解除タイマー：何があっても5秒後にはぐるぐるを消す
       setTimeout(() => toggleLoading(false), 5000);
-
       await liff.init({ liffId: LIFF_ID });
       if (!liff.isLoggedIn()) { liff.login(); return; }
-      
       const profile = await liff.getProfile();
       myLineId = profile.userId;
-
       toggleLoading(true);
       const data = await callGAS({ action: 'checkUser', userId: myLineId });
-      
       if (data.userData) {
         me = data.userData;
         resList = data.reservations || [];
@@ -168,7 +177,6 @@
         document.getElementById('reg-page').classList.remove('hidden');
       }
     } catch (e) {
-      // エラーが出てもぐるぐるは消す
       toggleLoading(false);
       alert("エラー: " + e.message);
     }
@@ -178,10 +186,8 @@
     const name = document.getElementById('new-name').value;
     const sid = document.getElementById('sid').value;
     if(!name || !sid) return alert("入力してください");
-    
     toggleLoading(true);
     const data = await callGAS({ action: 'register', userId: myLineId, name: name, sid: sid });
-    
     if (data.userData) {
       me = data.userData;
       resList = data.reservations || [];
@@ -199,28 +205,21 @@
   }
 
   function showMain(isNewUser) {
-    // まず最初にぐるぐるを消す！
     toggleLoading(false);
-
     document.getElementById('reg-page').classList.add('hidden');
     document.getElementById('main-page').classList.remove('hidden');
-    
     const roleStatus = (me.role === 'カギ') ? '<span style="color:green; font-size:12px;">[権限あり]</span>' : '<span style="color:red; font-size:12px;">[権限なし]</span>';
     document.getElementById('u-name').innerHTML = me.name + " さん " + roleStatus;
     document.getElementById('res-date-display').value = getJstDate().replace(/-/g,'/');
-    
-    // 描画処理でエラーが出ても止まらないようにtry-catch
     try {
       render();
     } catch(e) {
       console.error(e);
       alert("描画エラー: " + e.message);
     }
-
     if (isNewUser) openHelp();
   }
 
-  // --- 以下ロジック ---
   function setTime(dStr, h, startT = null, endT = null, resId = null) {
     document.getElementById('res-date-display').value = dStr.replace(/-/g,'/');
     const btn = document.querySelector('.btn-res');
@@ -234,7 +233,8 @@
       editModeId = null;
       document.getElementById('start-t').value = h.toString().padStart(2,'0') + ":00";
       let eh = h + 1;
-      document.getElementById('end-t').value = (eh > endH ? endH : eh).toString().padStart(2,'0') + ":00";
+      // 21:00を超えないように設定
+      document.getElementById('end-t').value = (eh > 21 ? 21 : eh).toString().padStart(2,'0') + ":00";
       btn.innerText = "予約を確定";
       btn.classList.remove('btn-update');
     }
@@ -261,6 +261,12 @@
     const dStr = document.getElementById('res-date-display').value.replace(/\//g,'-'), 
           s = document.getElementById('start-t').value, e = document.getElementById('end-t').value;
     if(s >= e) return alert("時間が不正です");
+
+    // 修正ポイント：21:00以降の予約を制限
+    const endParts = e.split(':').map(Number);
+    if (endParts[0] > 21 || (endParts[0] === 21 && endParts[1] > 0)) {
+      return alert("予約は21:00までしかできません");
+    }
     
     const sV = s.split(':').map(Number).reduce((h, m) => h + m/60);
     const eV = e.split(':').map(Number).reduce((h, m) => h + m/60);
@@ -290,6 +296,7 @@
       const s = getJstDate(i); days.push(s);
       th.insertAdjacentHTML('beforeend', `<th>${d.getMonth()+1}/${d.getDate()}(${labels[d.getDay()]})</th>`);
     }
+    // h < endH (21) により、21:00以降の行は作られません
     for (let h = startH; h < endH; h++) {
       let r = `<tr><td class="time-col">${h}:00</td>`;
       days.forEach(d => { r += `<td id="c-${d}-${h}"><div class="clickable" onclick="setTime('${d}',${h})"></div></td>`; });
@@ -338,6 +345,8 @@
     for (let h = startH; h <= endH; h++) {
       ['00', '30'].forEach(m => {
         const t = `${h.toString().padStart(2,'0')}:${m}`;
+        // 修正ポイント：21:30をプルダウンから削除
+        if (h === 21 && m === '30') return;
         s.add(new Option(t, t)); e.add(new Option(t, t));
       });
     }
